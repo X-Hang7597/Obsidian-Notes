@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第5章 深度学习计算 · 交互式全景可视化工作台</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    /* 隐藏滚动条但保留滚动功能 */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .tab-btn.active {
+      border-color: var(--primary);
+      color: var(--primary);
+      background-color: color-mix(in srgb, var(--primary) 12%, transparent);
+    }
+    .tier-badge {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="bg-[var(--background)] text-[var(--foreground)] antialiased p-4 md:p-6 min-h-screen">
+
+  <!-- 顶部标题卡片 -->
+  <header class="max-w-6xl mx-auto mb-6 bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 md:p-6 shadow-sm">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div>
+        <div class="flex items-center gap-2 mb-2">
+          <span class="px-2.5 py-0.5 text-xs font-semibold rounded-md bg-[var(--primary)] text-[var(--primary-foreground)]">
+            动手学深度学习 · 第 5 章
+          </span>
+          <span class="text-xs text-[var(--muted-foreground)]">PyTorch 底层计算与计算架构</span>
+        </div>
+        <h1 class="text-xl md:text-2xl font-bold tracking-tight text-[var(--foreground)]">
+          深度学习计算 · 交互式全景思维沙盘
+        </h1>
+        <p class="text-sm text-[var(--muted-foreground)] mt-1">
+          将面向对象抽象、显存参数管理、高阶张量算子与 GPU 硬件加速融为一体的可视化学习空间。
+        </p>
+      </div>
+
+      <!-- 快捷指标预览 -->
+      <div class="flex items-center gap-3">
+        <div class="px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--background)] text-center">
+          <div class="text-xs text-[var(--muted-foreground)]">建层方法</div>
+          <div class="text-lg font-bold text-[var(--primary)]">10 种</div>
+        </div>
+        <div class="px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--background)] text-center">
+          <div class="text-xs text-[var(--muted-foreground)]">架构梯队</div>
+          <div class="text-lg font-bold text-[var(--foreground)]">4 大类</div>
+        </div>
+        <div class="px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--background)] text-center">
+          <div class="text-xs text-[var(--muted-foreground)]">GPU 测试提速</div>
+          <div class="text-lg font-bold text-emerald-500">3.61×</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 选项卡导航栏 -->
+    <nav class="flex items-center gap-2 mt-6 border-b border-[var(--border)] pb-2 overflow-x-auto no-scrollbar">
+      <button onclick="switchTab('tab-taxonomy')" id="btn-tab-taxonomy" class="tab-btn active px-4 py-2 rounded-xl text-xs md:text-sm font-medium border border-transparent transition-all whitespace-nowrap">
+        🏗️ 4大梯队 10种建层演化
+      </button>
+      <button onclick="switchTab('tab-batch-matrix')" id="btn-tab-batch-matrix" class="tab-btn px-4 py-2 rounded-xl text-xs md:text-sm font-medium border border-transparent transition-all whitespace-nowrap">
+        🏭 物料 vs 齿轮 (Batch与权重)
+      </button>
+      <button onclick="switchTab('tab-einsum')" id="btn-tab-einsum" class="tab-btn px-4 py-2 rounded-xl text-xs md:text-sm font-medium border border-transparent transition-all whitespace-nowrap">
+        🧩 einsum 消消乐机制
+      </button>
+      <button onclick="switchTab('tab-hardware')" id="btn-tab-hardware" class="tab-btn px-4 py-2 rounded-xl text-xs md:text-sm font-medium border border-transparent transition-all whitespace-nowrap">
+        ⚡ GPU 高铁与 .item() 刹车
+      </button>
+      <button onclick="switchTab('tab-lifecycle')" id="btn-tab-lifecycle" class="tab-btn px-4 py-2 rounded-xl text-xs md:text-sm font-medium border border-transparent transition-all whitespace-nowrap">
+        🔄 Module 双重隐形触发器
+      </button>
+    </nav>
+  </header>
+
+  <!-- 主体内容区域 -->
+  <main class="max-w-6xl mx-auto space-y-6">
+
+    <!-- ==================== TAB 1: 4大梯队 10种建层演化 ==================== -->
+    <section id="tab-taxonomy" class="tab-panel space-y-6">
+      <!-- 演化路线图 -->
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 md:p-6 shadow-sm">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+          <div>
+            <h2 class="text-base md:text-lg font-bold text-[var(--foreground)]">从纯数学裸张量到高阶自定义算子的 4 级进化</h2>
+            <p class="text-xs md:text-sm text-[var(--muted-foreground)]">点击梯队卡片，查看核心语法、参数管理方式与典型陷阱。</p>
+          </div>
+          <!-- 智能选型向导入口 -->
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-[var(--muted-foreground)]">快速筛选：</span>
+            <button onclick="filterTiers('all')" class="px-2.5 py-1 text-xs rounded-lg border border-[var(--border)] bg-[var(--background)] hover:border-[var(--primary)] transition">全部</button>
+            <button onclick="filterTiers('tier1')" class="px-2.5 py-1 text-xs rounded-lg border border-[var(--border)] bg-[var(--background)] hover:border-[var(--primary)] transition">梯队 1</button>
+            <button onclick="filterTiers('tier2')" class="px-2.5 py-1 text-xs rounded-lg border border-[var(--border)] bg-[var(--background)] hover:border-[var(--primary)] transition">梯队 2</button>
+            <button onclick="filterTiers('tier3')" class="px-2.5 py-1 text-xs rounded-lg border border-[var(--border)] bg-[var(--background)] hover:border-[var(--primary)] transition">梯队 3</button>
+            <button onclick="filterTiers('tier4')" class="px-2.5 py-1 text-xs rounded-lg border border-[var(--border)] bg-[var(--background)] hover:border-[var(--primary)] transition">梯队 4</button>
+          </div>
+        </div>
+
+        <!-- 4大梯队卡片网格 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- 梯队 1 -->
+          <div class="tier-card tier1 p-4 rounded-xl border border-[var(--border)] bg-[var(--background)] hover:shadow-md transition">
+            <div class="flex items-center justify-between mb-2">
+              <span class="tier-badge bg-amber-500/10 text-amber-500">梯队一</span>
+              <span class="text-xs text-[var(--muted-foreground)]">张量裸写</span>
+            </div>
+            <h3 class="font-bold text-sm text-[var(--foreground)] mb-1">原生张量白手起家</h3>
+            <p class="text-xs text-[var(--muted-foreground)] mb-3">无框架容器包装，纯手写矩阵运算与反向传播参数累加。</p>
+            <div class="space-y-1.5 text-xs">
+              <div class="p-2 rounded bg-[var(--card)] border border-[var(--border)] font-mono">
+                <span class="text-amber-500 font-bold">1. 纯张量数学手写</span><br/>
+                <span class="text-[var(--muted-foreground)]">w, b + torch.mm</span>
+              </div>
+              <div class="p-2 rounded bg-[var(--card)] border border-[var(--border)] font-mono">
+                <span class="text-amber-500 font-bold">2. 函数式过程封装</span><br/>
+                <span class="text-[var(--muted-foreground)]">def linreg(X, w, b)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 梯队 2 -->
+          <div class="tier-card tier2 p-4 rounded-xl border border-[var(--border)] bg-[var(--background)] hover:shadow-md transition">
+            <div class="flex items-center justify-between mb-2">
+              <span class="tier-badge bg-blue-500/10 text-blue-500">梯队二</span>
+              <span class="text-xs text-[var(--muted-foreground)]">官方容器</span>
+            </div>
+            <h3 class="font-bold text-sm text-[var(--foreground)] mb-1">标准容器快速拼装</h3>
+            <p class="text-xs text-[var(--muted-foreground)] mb-3">利用 Sequential 与 add_module 进行有序线性级联。</p>
+            <div class="space-y-1.5 text-xs">
+              <div class="p-2 rounded bg-[var(--card)] border border-[var(--border)] font-mono">
+                <span class="text-blue-500 font-bold">3. nn.Sequential 经典链式</span><br/>
+                <span class="text-[var(--muted-foreground)]">nn.Sequential(l1, l2)</span>
+              </div>
+              <div class="p-2 rounded bg-[var(--card)] border border-[var(--border)] font-mono">
+                <span class="text-blue-500 font-bold">4. 动态循环与 add_module</span><br/>
+                <span class="text-[var(--muted-foreground)]">net.add_module('blk', b)</span>
+              </div>
+              <div class="p-2 rounded bg-[var(--card)] border border-[var(--border)] font-mono">
+                <span class="text-blue-500 font-bold">5. 延后初始化容器</span><br/>
+                <span class="text-[var(--muted-foreground)]">nn.LazyLinear(out_dim)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 梯队 3 -->
+          <div class="tier-card tier3 p-4 rounded-xl border border-[var(--border)] bg-[var(--background)] hover:shadow-md transition">
+            <div class="flex items-center justify-between mb-2">
+              <span class="tier-badge bg-emerald-500/10 text-emerald-500">梯队三</span>
+              <span class="text-xs text-[var(--muted-foreground)]">面向对象</span>
+            </div>
+            <h3 class="font-bold text-sm text-[var(--foreground)] mb-1">nn.Module 自由拓扑</h3>
+            <p class="text-xs text-[var(--muted-foreground)] mb-3">重写 forward 方法，支持动态分支、循环与权重绑定。</p>
+            <div class="space-y-1.5 text-xs">
+              <div class="p-2 rounded bg-[var(--card)] border border-[var(--border)] font-mono">
+                <span class="text-emerald-500 font-bold">6. 自定义复合块 (MLP)</span><br/>
+                <span class="text-[var(--muted-foreground)]">self.hidden = nn.Linear</span>
+              </div>
+              <div class="p-2 rounded bg-[var(--card)] border border-[var(--border)] font-mono">
+                <span class="text-emerald-500 font-bold">7. 动态控制流混合块</span><br/>
+                <span class="text-[var(--muted-foreground)]">while / if + 常数权重</span>
+              </div>
+              <div class="p-2 rounded bg-[var(--card)] border border-[var(--border)] font-mono">
+                <span class="text-emerald-500 font-bold">8. 多分支并行拼接</span><br/>
+                <span class="text-[var(--muted-foreground)]">ParallelBlock + cat</span>
+              </div>
+              <div class="p-2 rounded bg-[var(--card)] border border-[var(--border)] font-mono">
+                <span class="text-emerald-500 font-bold">9. 参数绑定与共享</span><br/>
+                <span class="text-[var(--muted-foreground)]">self.linear(X) 跨步复用</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 梯队 4 -->
+          <div class="tier-card tier4 p-4 rounded-xl border border-[var(--border)] bg-[var(--background)] hover:shadow-md transition">
+            <div class="flex items-center justify-between mb-2">
+              <span class="tier-badge bg-purple-500/10 text-purple-500">梯队四</span>
+              <span class="text-xs text-[var(--muted-foreground)]">算子创新</span>
+            </div>
+            <h3 class="font-bold text-sm text-[var(--foreground)] mb-1">底层自定义数学算子</h3>
+            <p class="text-xs text-[var(--muted-foreground)] mb-3">直接操控张量变换、高阶张量缩并与频域实数变换。</p>
+            <div class="space-y-1.5 text-xs">
+              <div class="p-2 rounded bg-[var(--card)] border border-[var(--border)] font-mono">
+                <span class="text-purple-500 font-bold">10.1 无参中心化层</span><br/>
+                <span class="text-[var(--muted-foreground)]">CenteredLayer (X - mean)</span>
+              </div>
+              <div class="p-2 rounded bg-[var(--card)] border border-[var(--border)] font-mono">
+                <span class="text-purple-500 font-bold">10.2 nn.Parameter 学习层</span><br/>
+                <span class="text-[var(--muted-foreground)]">MyLinear (可学权重)</span>
+              </div>
+              <div class="p-2 rounded bg-[var(--card)] border border-[var(--border)] font-mono">
+                <span class="text-purple-500 font-bold">10.3 einsum 三阶收缩层</span><br/>
+                <span class="text-[var(--muted-foreground)]">BilinearReduction</span>
+              </div>
+              <div class="p-2 rounded bg-[var(--card)] border border-[var(--border)] font-mono">
+                <span class="text-purple-500 font-bold">10.4 频域实数截断层</span><br/>
+                <span class="text-[var(--muted-foreground)]">FourierHalfLayer (rfft)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 交互式技术选型向导 -->
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 md:p-6 shadow-sm">
+        <h3 class="text-sm md:text-base font-bold text-[var(--foreground)] mb-2">🧭 架构选型智能决策向导</h3>
+        <p class="text-xs text-[var(--muted-foreground)] mb-4">根据你的当前需求，点击下方选项，获取最佳构建方案与避坑建议：</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+          <button onclick="runAdvisor('linear')" class="p-3 text-left rounded-xl border border-[var(--border)] bg-[var(--background)] hover:border-[var(--primary)] transition">
+            <div class="font-semibold text-xs text-[var(--foreground)]">简单前馈流水线</div>
+            <div class="text-xs text-[var(--muted-foreground)] mt-1">单输入、单输出、逐层递进，无分支</div>
+          </button>
+          <button onclick="runAdvisor('branch')" class="p-3 text-left rounded-xl border border-[var(--border)] bg-[var(--background)] hover:border-[var(--primary)] transition">
+            <div class="font-semibold text-xs text-[var(--foreground)]">残差跳连 / 多分支多模态</div>
+            <div class="text-xs text-[var(--muted-foreground)] mt-1">需要特征横向拼接 (cat) 或残差相加 (add)</div>
+          </button>
+          <button onclick="runAdvisor('custom_op')" class="p-3 text-left rounded-xl border border-[var(--border)] bg-[var(--background)] hover:border-[var(--primary)] transition">
+            <div class="font-semibold text-xs text-[var(--foreground)]">全新数学算子 / 频域变换</div>
+            <div class="text-xs text-[var(--muted-foreground)] mt-1">官方库未提供的张量运算或高阶三线性交互</div>
+          </button>
+        </div>
+
+        <div id="advisor-result" class="p-4 rounded-xl border border-[var(--primary)] bg-blue-500/5">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-xs font-bold text-[var(--primary)]">推荐方案：</span>
+            <span id="advisor-title" class="text-xs font-bold text-[var(--foreground)]">【方法 3】nn.Sequential 顺序容器</span>
+          </div>
+          <div id="advisor-desc" class="text-xs text-[var(--muted-foreground)] mb-2">
+            代码量极少，PyTorch 会自动维护有序字典 <code>_modules</code>。
+          </div>
+          <div class="p-2.5 rounded-lg bg-[var(--background)] font-mono text-xs overflow-x-auto text-[var(--foreground)]" id="advisor-code">
+net = nn.Sequential(nn.Linear(20, 256), nn.ReLU(), nn.Linear(256, 10))
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: 物料 vs 齿轮 ==================== -->
+    <section id="tab-batch-matrix" class="tab-panel hidden space-y-6">
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 md:p-6 shadow-sm">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+          <div>
+            <h2 class="text-base md:text-lg font-bold text-[var(--foreground)]">工厂流水线模拟：为什么 Batch Size 翻倍不改变权重尺寸？</h2>
+            <p class="text-xs md:text-sm text-[var(--muted-foreground)]">调节输入物料参数，观察流水线数据流动与固定机器齿轮的对比。</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="px-2.5 py-1 text-xs rounded-lg bg-emerald-500/10 text-emerald-500 font-semibold">
+              齿轮尺寸恒定定律
+            </span>
+          </div>
+        </div>
+
+        <!-- 交互控制器 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-xl border border-[var(--border)] bg-[var(--background)] mb-6">
+          <div>
+            <div class="flex justify-between items-center text-xs mb-1">
+              <span class="font-semibold text-[var(--foreground)]">样本批次大小 (Batch Size B)</span>
+              <span id="val-batch-size" class="font-mono text-xs text-[var(--primary)] font-bold">2</span>
+            </div>
+            <input type="range" id="slider-batch" min="1" max="6" value="2" step="1" oninput="updateMatrixSim()" class="w-full accent-[var(--primary)] cursor-pointer">
+            <p class="text-xs text-[var(--muted-foreground)] mt-1">流水线上一次性送入的工件数量（输入行数）。</p>
+          </div>
+
+          <div>
+            <div class="flex justify-between items-center text-xs mb-1">
+              <span class="font-semibold text-[var(--foreground)]">网络输出层配置 (nn.Linear)</span>
+              <span class="font-mono text-xs text-[var(--foreground)]">in_features=4, out_features=1</span>
+            </div>
+            <div class="text-xs text-[var(--muted-foreground)] mt-2">
+              隐藏层特征为 4 维，输出层定义为 <code>nn.Linear(4, 1)</code>。
+            </div>
+          </div>
+        </div>
+
+        <!-- 矩阵相乘与机器可视化 -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
+          <!-- 输入物料 X -->
+          <div class="lg:col-span-4 p-4 rounded-xl border border-blue-500/30 bg-blue-500/5">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold text-blue-500">物料：输入特征张量 X</span>
+              <span id="shape-x" class="font-mono text-xs text-blue-500 font-semibold">(2, 4)</span>
+            </div>
+            <div id="grid-x" class="space-y-1 font-mono text-xs">
+              <!-- 动态生成 -->
+            </div>
+            <div class="text-xs text-[var(--muted-foreground)] mt-3">
+              每一行代表 1 个独立样本，每列为 1 维输入特征。
+            </div>
+          </div>
+
+          <!-- 乘号与转置运算 -->
+          <div class="lg:col-span-1 text-center font-bold text-lg text-[var(--muted-foreground)]">
+            × W<sup>T</sup> =
+          </div>
+
+          <!-- 固定机器 W -->
+          <div class="lg:col-span-4 p-4 rounded-xl border border-amber-500/30 bg-amber-500/5">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold text-amber-500">机器齿轮：权重矩阵 W</span>
+              <span class="font-mono text-xs text-amber-500 font-semibold">(1, 4) - 恒定不变！</span>
+            </div>
+            <div class="p-2 rounded bg-[var(--background)] font-mono text-xs border border-[var(--border)] text-center text-amber-500 font-bold">
+              [ 0.35, -0.42, 0.81, -0.19 ]
+            </div>
+            <div class="flex justify-between items-center text-xs text-[var(--muted-foreground)] mt-3">
+              <span>参数数量: <b class="text-[var(--foreground)]">4 + 1(bias) = 5</b></span>
+              <span class="text-emerald-500 font-semibold">不受 B 影响</span>
+            </div>
+          </div>
+
+          <!-- 输出物料 Y -->
+          <div class="lg:col-span-3 p-4 rounded-xl border border-purple-500/30 bg-purple-500/5">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold text-purple-500">产出物料：输出张量 Y</span>
+              <span id="shape-y" class="font-mono text-xs text-purple-500 font-semibold">(2, 1)</span>
+            </div>
+            <div id="grid-y" class="space-y-1 font-mono text-xs">
+              <!-- 动态生成 -->
+            </div>
+            <div class="text-xs text-[var(--muted-foreground)] mt-3">
+              行数随 B 线性扩展，对应每个样本的推断值。
+            </div>
+          </div>
+        </div>
+
+        <!-- 总结提醒 -->
+        <div class="mt-6 p-4 rounded-xl border border-[var(--border)] bg-[var(--background)]">
+          <h4 class="text-xs font-bold text-[var(--foreground)] mb-1">💡 深度学习工程师的直觉法则</h4>
+          <p class="text-xs text-[var(--muted-foreground)] leading-relaxed">
+            <code>net[2].state_dict()</code> 是用卡尺量车间机器里零件的规格（尺寸固定为 <code>(1, 4)</code>）；而 <code>net(X)</code> 则是将今天送来加工的整卡车物料送进流水线。哪怕卡车里运了 10,000 个零件，机器零件的尺寸也绝不可能跟着变大！
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: einsum 消消乐 ==================== -->
+    <section id="tab-einsum" class="tab-panel hidden space-y-6">
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 md:p-6 shadow-sm">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+          <div>
+            <h2 class="text-base md:text-lg font-bold text-[var(--foreground)]">一秒读懂 einsum：三阶张量双线性交叉的“消消乐”</h2>
+            <p class="text-xs md:text-sm text-[var(--muted-foreground)]">课后练习 1 数学式：y_k = ∑_i ∑_j W_ijk x_i x_j 的字符约定解构。</p>
+          </div>
+          <div class="px-2.5 py-1 text-xs rounded-lg bg-purple-500/10 text-purple-500 font-semibold">
+            模式: 'bi,bj,ijk-&gt;bk'
+          </div>
+        </div>
+
+        <!-- 模式拆解卡片 -->
+        <div class="p-5 rounded-xl border border-[var(--border)] bg-[var(--background)] mb-6 text-center">
+          <div class="inline-flex items-center gap-1 font-mono text-base md:text-xl font-bold bg-[var(--card)] px-4 py-2 rounded-xl border border-[var(--border)]">
+            <span class="text-blue-500 px-1 py-0.5 rounded hover:bg-blue-500/10 transition cursor-pointer" title="输入 1 的 Batch 轴">b</span>
+            <span class="text-emerald-500 px-1 py-0.5 rounded hover:bg-emerald-500/10 transition cursor-pointer" title="输入 1 的特征轴 i">i</span>
+            <span class="text-[var(--muted-foreground)]">,</span>
+            <span class="text-blue-500 px-1 py-0.5 rounded hover:bg-blue-500/10 transition cursor-pointer" title="输入 2 的 Batch 轴">b</span>
+            <span class="text-amber-500 px-1 py-0.5 rounded hover:bg-amber-500/10 transition cursor-pointer" title="输入 2 的特征轴 j">j</span>
+            <span class="text-[var(--muted-foreground)]">,</span>
+            <span class="text-emerald-500 px-1 py-0.5 rounded hover:bg-emerald-500/10 transition cursor-pointer" title="权重连接特征 i">i</span>
+            <span class="text-amber-500 px-1 py-0.5 rounded hover:bg-amber-500/10 transition cursor-pointer" title="权重连接特征 j">j</span>
+            <span class="text-purple-500 px-1 py-0.5 rounded hover:bg-purple-500/10 transition cursor-pointer" title="输出通道 k">k</span>
+            <span class="text-[var(--foreground)] mx-1">─►</span>
+            <span class="text-blue-500 px-1 py-0.5 rounded bg-blue-500/10" title="保留的 Batch 轴">b</span>
+            <span class="text-purple-500 px-1 py-0.5 rounded bg-purple-500/10" title="保留的输出通道轴">k</span>
+          </div>
+        </div>
+
+        <!-- 规则解密 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- 自由指标：保留 -->
+          <div class="p-4 rounded-xl border border-blue-500/30 bg-blue-500/5">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="px-2 py-0.5 text-xs font-bold rounded bg-blue-500 text-white">自由指标 (Free Indices)</span>
+              <span class="font-mono text-xs font-bold text-blue-500">b, k</span>
+            </div>
+            <p class="text-xs text-[var(--muted-foreground)] leading-relaxed">
+              在箭头右侧 <code>-&gt; bk</code> 中出现：
+            </p>
+            <ul class="text-xs text-[var(--foreground)] space-y-1.5 mt-2 list-disc list-inside">
+              <li><b>b (Batch Size)</b>: 保留样本行独立性，每个样本互不干扰。</li>
+              <li><b>k (Output Features)</b>: 保留输出通道维度，生成输出特征向量。</li>
+            </ul>
+          </div>
+
+          <!-- 哑指标：消除求和 -->
+          <div class="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="px-2 py-0.5 text-xs font-bold rounded bg-amber-500 text-white">哑指标 (Dummy Indices)</span>
+              <span class="font-mono text-xs font-bold text-amber-500">i, j</span>
+            </div>
+            <p class="text-xs text-[var(--muted-foreground)] leading-relaxed">
+              在箭头左侧出现，但<b>在箭头右侧消失了</b>：
+            </p>
+            <ul class="text-xs text-[var(--foreground)] space-y-1.5 mt-2 list-disc list-inside">
+              <li>触发爱因斯坦消消乐规则：在左侧有、右侧无的维度一律<b>累加求和</b>！</li>
+              <li>等价于沿特征维度执行双重循环：<code>∑_i ∑_j (x_i · x_j · W_ijk)</code>。</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- 动画式交互演示 -->
+        <div class="mt-4 p-4 rounded-xl border border-[var(--border)] bg-[var(--background)]">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-bold text-[var(--foreground)]">交互式单样本单通道收缩过程推演</span>
+            <button onclick="playEinsumDemo()" class="px-3 py-1 text-xs rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] font-medium hover:opacity-90 transition">
+              播放求和消消乐动画
+            </button>
+          </div>
+          <div id="einsum-animation-box" class="p-4 rounded-lg bg-[var(--card)] border border-[var(--border)] font-mono text-xs text-[var(--muted-foreground)]">
+            点击上方按钮，观察特征交叉矩阵与权重切片 W_{::k} 进行点乘并塌缩为标量 y_k 的全过程...
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: GPU 算力与刹车 ==================== -->
+    <section id="tab-hardware" class="tab-panel hidden space-y-6">
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 md:p-6 shadow-sm">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+          <div>
+            <h2 class="text-base md:text-lg font-bold text-[var(--foreground)]">真实 RTX 4050 硬件测试实证：算力吞吐与调度时延</h2>
+            <p class="text-xs md:text-sm text-[var(--muted-foreground)]">我们在本地 GPU 上实测获取的黄金基准，揭示硬件深层设计哲学。</p>
+          </div>
+          <span class="px-2.5 py-1 text-xs rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] font-semibold">
+            NVIDIA RTX 4050 Laptop
+          </span>
+        </div>
+
+        <!-- 场景对比两栏 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <!-- 场景 1：大矩阵乘法 -->
+          <div class="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold text-emerald-500">场景 A：大矩阵乘法 (5000 × 5000)</span>
+              <span class="text-xs font-bold text-emerald-500">GPU 领先 3.61×</span>
+            </div>
+            <div class="space-y-2 mt-3 text-xs">
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span>CPU 耗时 (Intel i5/i7)</span>
+                  <span class="font-mono font-semibold">420.33 ms</span>
+                </div>
+                <div class="w-full bg-[var(--border)] h-2 rounded-full overflow-hidden">
+                  <div class="bg-red-400 h-full" style="width: 100%;"></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-emerald-500 font-semibold">RTX 4050 GPU 耗时</span>
+                  <span class="font-mono font-semibold text-emerald-500">116.28 ms</span>
+                </div>
+                <div class="w-full bg-[var(--border)] h-2 rounded-full overflow-hidden">
+                  <div class="bg-emerald-500 h-full" style="width: 27.6%;"></div>
+                </div>
+              </div>
+            </div>
+            <p class="text-xs text-[var(--muted-foreground)] mt-3">
+              <b>物理机理：</b>数千个 CUDA Core 并行打满，内存带宽达到数百 GB/s，算力高铁全速飞驰！
+            </p>
+          </div>
+
+          <!-- 场景 2：小矩阵发射延迟 -->
+          <div class="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold text-amber-500">场景 B：微型矩阵 (16 × 16, 1000次)</span>
+              <span class="text-xs font-bold text-red-500">GPU 反慢 13.11×</span>
+            </div>
+            <div class="space-y-2 mt-3 text-xs">
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-blue-500 font-semibold">CPU 耗时</span>
+                  <span class="font-mono font-semibold text-blue-500">1.66 ms</span>
+                </div>
+                <div class="w-full bg-[var(--border)] h-2 rounded-full overflow-hidden">
+                  <div class="bg-blue-500 h-full" style="width: 7.6%;"></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-amber-500">RTX 4050 GPU 耗时</span>
+                  <span class="font-mono font-semibold text-amber-500">21.76 ms</span>
+                </div>
+                <div class="w-full bg-[var(--border)] h-2 rounded-full overflow-hidden">
+                  <div class="bg-amber-500 h-full" style="width: 100%;"></div>
+                </div>
+              </div>
+            </div>
+            <p class="text-xs text-[var(--muted-foreground)] mt-3">
+              <b>物理机理：</b>每次 CUDA Kernel 发射与驱动调用都有约 10~20 微秒固定开销，开销远大于计算本身！
+            </p>
+          </div>
+        </div>
+
+        <!-- 场景 3：.item() 急刹车机制 -->
+        <div class="p-4 rounded-xl border border-[var(--border)] bg-[var(--background)]">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-3">
+            <div>
+              <h3 class="text-sm font-bold text-[var(--foreground)]">⚠️ 致命性能杀手：步步调用 <code>.item()</code> 造成的流水线急刹车</h3>
+              <p class="text-xs text-[var(--muted-foreground)]">PyTorch GPU 前向传播默认是异步队列；调用 .item() 会强行令 CPU 等待 GPU 完成并同步返回。</p>
+            </div>
+            <div class="font-mono text-xs font-bold text-red-400">
+              减速达 2.62 倍 (124.64ms vs 47.58ms)
+            </div>
+          </div>
+
+          <div class="p-3 rounded-lg bg-[var(--card)] border border-[var(--border)] font-mono text-xs space-y-2">
+            <div class="text-red-400">
+              ❌ 错误写法：每一步强行从 GPU 捞数据回 CPU<br/>
+              <code>for X, y in loader: loss = crit(net(X), y); total += loss.item() # 触发主机急刹同步</code>
+            </div>
+            <div class="text-emerald-400">
+              ✔️ 优雅解法：GPU 内部原位累加，Epoch 结束仅同步一次<br/>
+              <code>for X, y in loader: total_tensor += crit(net(X), y); ...; total = total_tensor.item()</code>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 5: Module 双重隐形触发器 ==================== -->
+    <section id="tab-lifecycle" class="tab-panel hidden space-y-6">
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 md:p-6 shadow-sm">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+          <div>
+            <h2 class="text-base md:text-lg font-bold text-[var(--foreground)]">为什么写的是 __init__ 和 forward，调用时却是 layer(X)？</h2>
+            <p class="text-xs md:text-sm text-[var(--muted-foreground)]">透视 Python 解释器与 PyTorch 基础基类的双阶段流水线协同机制。</p>
+          </div>
+        </div>
+
+        <!-- 流程图 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- 阶段 1 -->
+          <div class="p-4 rounded-xl border border-blue-500/30 bg-blue-500/5 space-y-3">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 text-xs font-bold rounded bg-blue-500 text-white">阶段一：造机器</span>
+              <span class="font-mono text-xs font-bold text-blue-500">layer = FourierHalfLayer()</span>
+            </div>
+            <div class="space-y-2 text-xs">
+              <div class="p-2.5 rounded bg-[var(--card)] border border-[var(--border)]">
+                <b>1. Python 解释器调用 <code>__new__</code></b><br/>
+                <span class="text-[var(--muted-foreground)]">在堆内存中为对象开辟物理存储空间。</span>
+              </div>
+              <div class="p-2.5 rounded bg-[var(--card)] border border-[var(--border)]">
+                <b>2. 自动暗中触发 <code>__init__(self)</code></b><br/>
+                <span class="text-[var(--muted-foreground)]">创建 <code>_modules</code>、<code>_parameters</code>、<code>_buffers</code> 等私有有序字典，分配初始权重。</span>
+              </div>
+            </div>
+            <div class="text-xs text-blue-500 font-medium">
+              💡 铁律：该阶段只在模型创建时运行一次。
+            </div>
+          </div>
+
+          <!-- 阶段 2 -->
+          <div class="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 space-y-3">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 text-xs font-bold rounded bg-emerald-500 text-white">阶段二：开机器</span>
+              <span class="font-mono text-xs font-bold text-emerald-500">output = layer(signal)</span>
+            </div>
+            <div class="space-y-2 text-xs">
+              <div class="p-2.5 rounded bg-[var(--card)] border border-[var(--border)]">
+                <b>1. 自动触发魔法方法 <code>__call__(self, *args)</code></b><br/>
+                <span class="text-[var(--muted-foreground)]">包装前向勾子检查与性能分析器 Profiler 探针。</span>
+              </div>
+              <div class="p-2.5 rounded bg-[var(--card)] border border-[var(--border)]">
+                <b>2. 暗中调用用户重写的 <code>forward(self, X)</code></b><br/>
+                <span class="text-[var(--muted-foreground)]">执行实际张量变换，Autograd 引擎同步构建反向计算图。</span>
+              </div>
+            </div>
+            <div class="text-xs text-emerald-500 font-medium">
+              💡 铁律：每批次数据流动都会重复执行。
+            </div>
+          </div>
+        </div>
+
+        <!-- 致命错误高能预警 -->
+        <div class="mt-4 p-4 rounded-xl border border-red-500/30 bg-red-500/5">
+          <h4 class="text-xs font-bold text-red-500 mb-1">🚨 为什么严禁在训练循环中直接写 <code>MyLinear(20, 10)(X)</code>？</h4>
+          <p class="text-xs text-[var(--muted-foreground)] leading-relaxed">
+            如果在训练循环 <code>for X, y in loader:</code> 中写 <code>out = MyLinear(20, 10)(X)</code>，相当于把阶段一和阶段二混在一起：**每来一批数据，都重新买一台新机器装配一次**。新权重每次都是随机初始化的，上一轮学到的权重被垃圾回收销毁，优化器更新的也是幽灵参数，模型陷入永无止境的“重新投胎”！
+          </p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 底部固定简报 -->
+  <footer class="max-w-6xl mx-auto mt-8 border-t border-[var(--border)] pt-4 text-center text-xs text-[var(--muted-foreground)]">
+    深度学习计算（Chapter 5）· 知识图谱已完整双向同步至 Obsidian 知识库 · 支持离线交互与多端自适应
+  </footer>
+
+  <script>
+    // Tab 切换逻辑
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      
+      const targetPanel = document.getElementById(tabId);
+      if (targetPanel) targetPanel.classList.remove('hidden');
+
+      const activeBtn = document.getElementById('btn-' + tabId);
+      if (activeBtn) activeBtn.classList.add('active');
+
+      if (tabId === 'tab-batch-matrix') {
+        updateMatrixSim();
+      }
+    }
+
+    // 梯队卡片筛选
+    function filterTiers(tier) {
+      const cards = document.querySelectorAll('.tier-card');
+      cards.forEach(card => {
+        if (tier === 'all' || card.classList.contains(tier)) {
+          card.style.display = 'block';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    }
+
+    // 智能选型向导
+    const advisorData = {
+      linear: {
+        title: "【方法 3】nn.Sequential 顺序容器",
+        desc: "代码量极少，PyTorch 会自动维护有序字典 _modules，支持自动参数收集与设备迁移。",
+        code: "net = nn.Sequential(nn.Linear(20, 256), nn.ReLU(), nn.Linear(256, 10))"
+      },
+      branch: {
+        title: "【方法 8】继承 nn.Module 自定义 ParallelBlock",
+        desc: "在 __init__ 中声明分支，在 forward 中使用 torch.cat(..., dim=1) 或逐元素相加进行多分支特征融合。",
+        code: "class ParallelBlock(nn.Module):\n    def __init__(self, net1, net2):\n        super().__init__()\n        self.net1 = net1\n        self.net2 = net2\n    def forward(self, X):\n        return torch.cat((self.net1(X), self.net2(X)), dim=1)"
+      },
+      custom_op: {
+        title: "【方法 10】自定义算子层 (结合 nn.Parameter 与 einsum/rfft)",
+        desc: "若需要可学参数，必须用 self.W = nn.Parameter(...) 获得身份证；前向直接写张量数学公式即可自动求导。",
+        code: "class BilinearReductionLayer(nn.Module):\n    def __init__(self, in_f, out_f):\n        super().__init__()\n        self.W = nn.Parameter(torch.randn(in_f, in_f, out_f) * 0.1)\n    def forward(self, X):\n        return torch.einsum('bi,bj,ijk->bk', X, X, self.W)"
+      }
+    };
+
+    function runAdvisor(type) {
+      const info = advisorData[type];
+      if (!info) return;
+      document.getElementById('advisor-title').innerText = info.title;
+      document.getElementById('advisor-desc').innerText = info.desc;
+      document.getElementById('advisor-code').innerText = info.code;
+    }
+
+    // 矩阵模拟器逻辑
+    function updateMatrixSim() {
+      const b = parseInt(document.getElementById('slider-batch').value, 10);
+      document.getElementById('val-batch-size').innerText = b;
+      document.getElementById('shape-x').innerText = `(${b}, 4)`;
+      document.getElementById('shape-y').innerText = `(${b}, 1)`;
+
+      const gridX = document.getElementById('grid-x');
+      const gridY = document.getElementById('grid-y');
+      gridX.innerHTML = '';
+      gridY.innerHTML = '';
+
+      const sampleValues = [
+        [0.82, 0.15, 0.44, 0.91],
+        [0.12, 0.77, 0.38, 0.05],
+        [0.55, 0.63, 0.29, 0.88],
+        [0.90, 0.31, 0.67, 0.42],
+        [0.24, 0.49, 0.83, 0.16],
+        [0.73, 0.85, 0.11, 0.60]
+      ];
+
+      // 固定权重与偏置模拟
+      const W = [0.35, -0.42, 0.81, -0.19];
+      const bias = 0.05;
+
+      for (let i = 0; i < b; i++) {
+        const rowVals = sampleValues[i];
+        let yVal = bias;
+        for (let j = 0; j < 4; j++) {
+          yVal += rowVals[j] * W[j];
+        }
+
+        // 渲染 X 的一行
+        const divX = document.createElement('div');
+        divX.className = 'p-1.5 rounded bg-[var(--background)] border border-[var(--border)] flex justify-between';
+        divX.innerHTML = `<span class="text-[var(--muted-foreground)]">样本 ${i+1}:</span> <span>[${rowVals.join(', ')}]</span>`;
+        gridX.appendChild(divX);
+
+        // 渲染 Y 的一行
+        const divY = document.createElement('div');
+        divY.className = 'p-1.5 rounded bg-[var(--background)] border border-[var(--border)] flex justify-between font-bold text-purple-500';
+        divY.innerHTML = `<span class="text-[var(--muted-foreground)]">输出 ${i+1}:</span> <span>[${yVal.toFixed(3)}]</span>`;
+        gridY.appendChild(divY);
+      }
+    }
+
+    // einsum 动画演示
+    let einsumTimer = null;
+    function playEinsumDemo() {
+      const box = document.getElementById('einsum-animation-box');
+      const steps = [
+        "1. 提取样本 b=1 对应的特征向量 X = [x_1, x_2, x_3, x_4, x_5] ...",
+        "2. 计算外积特征交互矩阵：M_ij = x_i * x_j (形状: 5 × 5) ...",
+        "3. 锁定输出通道 k=1 的三阶权重切片 W_{::, 1} (形状: 5 × 5) ...",
+        "4. 执行逐元素哈达玛积消消乐：∑_i ∑_j (M_ij * W_{ij, 1}) ...",
+        "5. 沿特征轴 i, j 累加求和完成！输出标量 y_{1, 1} 计算完毕！保留轴: [b=1, k=1] ✔️"
+      ];
+      
+      let curr = 0;
+      clearInterval(einsumTimer);
+      box.innerHTML = `<div class="text-[var(--primary)] font-bold mb-1">正在执行单步张量推演...</div>`;
+      
+      einsumTimer = setInterval(() => {
+        if (curr < steps.length) {
+          const p = document.createElement('div');
+          p.className = 'text-xs text-[var(--foreground)] mt-1 animate-pulse';
+          p.innerText = steps[curr];
+          box.appendChild(p);
+          curr++;
+        } else {
+          clearInterval(einsumTimer);
+          const done = document.createElement('div');
+          done.className = 'text-xs text-emerald-500 font-bold mt-2';
+          done.innerText = "✨ 张量收缩完毕！双线性交叉特征顺利降维输出！";
+          box.appendChild(done);
+        }
+      }, 700);
+    }
+
+    // 初始化
+    document.addEventListener('DOMContentLoaded', () => {
+      updateMatrixSim();
+    });
+  </script>
+</body>
+</html>
