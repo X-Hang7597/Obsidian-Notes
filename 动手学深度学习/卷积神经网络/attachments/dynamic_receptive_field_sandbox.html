@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>全动态感受野 (Receptive Field) 金字塔演练沙盘</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: #131c2e;
+    }
+    body {
+      background-color: var(--bg);
+      color: #f1f5f9;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    input[type=range] {
+      accent-color: #f59e0b;
+    }
+    .grid-cell {
+      transition: all 0.15s ease-out;
+    }
+    .grid-cell:hover {
+      transform: scale(1.1);
+      z-index: 10;
+    }
+  </style>
+</head>
+<body class="p-3 md:p-6 select-none min-h-screen">
+  <div class="max-w-5xl mx-auto space-y-6">
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-800 pb-4 gap-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="text-2xl">🔭</span>
+          <h1 class="text-2xl font-bold bg-gradient-to-r from-amber-400 via-sky-400 to-emerald-400 bg-clip-text text-transparent">
+            全动态感受野 (Receptive Field) 金字塔沙盘
+          </h1>
+        </div>
+        <p class="text-xs md:text-sm text-slate-400 mt-1">
+          自由调节各层卷积核大小，实时查看顶层神经元在原始底图上的<strong>真实视野边界与滚雪球扩张效应</strong>
+        </p>
+      </div>
+
+      <!-- Presets -->
+      <div class="flex flex-wrap items-center gap-2">
+        <button onclick="applyRFPreset(3, 3)" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-medium rounded-lg border border-slate-700 transition">
+          经典双 3×3 级联 (RF=5)
+        </button>
+        <button onclick="applyRFPreset(3, 5)" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-300 text-xs font-medium rounded-lg border border-slate-700 transition">
+          混合 3×3 + 5×5 (RF=7)
+        </button>
+        <button onclick="applyRFPreset(5, 5)" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-emerald-300 text-xs font-medium rounded-lg border border-slate-700 transition">
+          大核 5×5 + 5×5 (RF=9)
+        </button>
+      </div>
+    </div>
+
+    <!-- Controls Panel -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-900/90 p-4 rounded-2xl border border-slate-800 shadow-xl">
+      <!-- Layer 1 Kernel Size k1 -->
+      <div class="space-y-2 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+        <div class="flex justify-between items-center text-xs">
+          <span class="text-slate-300 font-medium">第 1 层卷积核尺寸 <code class="text-sky-300">k₁ × k₁</code></span>
+          <span id="k1-val" class="font-bold text-sky-400 font-mono text-sm">3 × 3</span>
+        </div>
+        <input id="k1-slider" type="range" min="1" max="5" step="2" value="3" oninput="onRFChange()" class="w-full cursor-pointer h-1.5 bg-slate-800 rounded-lg">
+        <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+          <span>1×1</span>
+          <span>3×3 (推荐)</span>
+          <span>5×5</span>
+        </div>
+      </div>
+
+      <!-- Layer 2 Kernel Size k2 -->
+      <div class="space-y-2 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+        <div class="flex justify-between items-center text-xs">
+          <span class="text-slate-300 font-medium">第 2 层卷积核尺寸 <code class="text-amber-300">k₂ × k₂</code></span>
+          <span id="k2-val" class="font-bold text-amber-400 font-mono text-sm">3 × 3</span>
+        </div>
+        <input id="k2-slider" type="range" min="1" max="5" step="2" value="3" oninput="onRFChange()" class="w-full cursor-pointer h-1.5 bg-slate-800 rounded-lg">
+        <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+          <span>1×1</span>
+          <span>3×3 (推荐)</span>
+          <span>5×5</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Mathematical Formula Banner -->
+    <div class="bg-gradient-to-r from-amber-950/40 via-sky-950/40 to-slate-950/60 p-4 rounded-xl border border-amber-500/30 flex flex-col md:flex-row items-center justify-between gap-3 text-xs md:text-sm">
+      <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
+        <span class="text-slate-300">感受野递推公式：</span>
+        <span class="font-mono bg-slate-900 px-3 py-1 rounded-lg border border-slate-700 text-amber-300">
+          RF₂ = RF₁ + (k₂ - 1) = <span id="f-k1">3</span> + (<span id="f-k2">3</span> - 1)
+        </span>
+      </div>
+      <div class="font-mono text-slate-200">
+        ➔ 顶层在原始图像上的总感受野为：<strong id="f-rf-res" class="text-emerald-400 text-base">5 × 5 (25 像素)</strong>
+      </div>
+    </div>
+
+    <!-- 3-Tier Dynamic Pyramid Visualization -->
+    <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-2xl space-y-6">
+
+      <!-- Tier 2: Top Feature Map -->
+      <div class="flex flex-col items-center">
+        <div class="text-xs font-bold text-amber-400 mb-2 flex items-center gap-2">
+          <span>🟡 第 2 层特征图 (输出)</span>
+          <span id="badge-l2" class="text-[10px] bg-amber-950/60 text-amber-300 px-2 py-0.5 rounded border border-amber-800">核大小 3×3</span>
+        </div>
+        <div id="grid-l2" class="grid gap-1.5 p-2 bg-slate-950 rounded-xl border border-slate-800"></div>
+        <div class="text-[11px] text-slate-400 mt-1">悬停或点击选中目标神经元 Z（默认选中中心）</div>
+      </div>
+
+      <!-- Connector 1 -->
+      <div class="flex items-center justify-center gap-2 text-amber-400/80 text-xs font-mono">
+        <span>▼</span>
+        <span id="desc-l2-to-l1">向下汇聚 k₂×k₂ (3×3) 神经元集群</span>
+        <span>▼</span>
+      </div>
+
+      <!-- Tier 1: Middle Feature Map -->
+      <div class="flex flex-col items-center">
+        <div class="text-xs font-bold text-sky-400 mb-2 flex items-center gap-2">
+          <span>🔵 第 1 层特征图 (中继)</span>
+          <span id="badge-l1" class="text-[10px] bg-sky-950/60 text-sky-300 px-2 py-0.5 rounded border border-sky-800">核大小 3×3 | 局部感受野为 3×3</span>
+        </div>
+        <div id="grid-l1" class="grid gap-1 p-2 bg-slate-950 rounded-xl border border-slate-800"></div>
+        <div class="text-[11px] text-sky-400 mt-1 font-medium" id="desc-l1-active">高亮区域为该目标神经元直接调用的 3×3 蓝色集群</div>
+      </div>
+
+      <!-- Connector 2 -->
+      <div class="flex items-center justify-center gap-2 text-sky-400/80 text-xs font-mono">
+        <span>▼</span>
+        <span id="desc-l1-to-l0">每个蓝色神经元各向原始图像展开 k₁×k₁ (3×3) 视野</span>
+        <span>▼</span>
+      </div>
+
+      <!-- Tier 0: Bottom Input Image -->
+      <div class="flex flex-col items-center">
+        <div class="text-xs font-bold text-emerald-400 mb-2 flex items-center gap-2">
+          <span>🟢 原始输入图像 (金字塔底座)</span>
+          <span id="badge-l0" class="text-[10px] bg-emerald-950/60 text-emerald-300 px-2 py-0.5 rounded border border-emerald-800">原始像素网格</span>
+        </div>
+        <div id="grid-l0" class="grid gap-1 p-2 bg-slate-950 rounded-xl border border-slate-800"></div>
+        <div class="text-xs text-emerald-400 mt-2 font-bold flex items-center gap-1.5" id="desc-l0-rf">
+          <span>🔥</span> 最终实际感受野：覆盖原始图像的 5×5 (25个绿色像素)！
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Parameter & Architectural Efficiency Card -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-800">
+        <h4 class="font-bold text-rose-400 text-xs mb-2 flex items-center gap-1.5">
+          <span>❌</span> 单层大卷积核直连 (参数黑洞)
+        </h4>
+        <div class="text-xs text-slate-300 space-y-1">
+          <div>• 单层达到同等感受野所需核大小：<span id="stat-single-size" class="font-mono font-bold text-white">5 × 5</span></div>
+          <div>• 单层参数量：<span id="stat-single-params" class="font-mono font-bold text-rose-300">25 个参数</span></div>
+          <div class="text-slate-400 text-[11px]">• 只有 1 层激活函数，特征拟合深度严重不足。</div>
+        </div>
+      </div>
+
+      <div class="bg-slate-900/90 p-4 rounded-xl border border-emerald-500/40 bg-emerald-950/10">
+        <h4 class="font-bold text-emerald-400 text-xs mb-2 flex items-center gap-1.5">
+          <span>✅</span> 多层小核级联堆叠 (VGGNet 经典哲学)
+        </h4>
+        <div class="text-xs text-slate-300 space-y-1">
+          <div>• 级联两层小核总参数量：<span id="stat-cascade-params" class="font-mono font-bold text-emerald-300">18 个参数</span></div>
+          <div>• 参数节约幅度：<strong id="stat-save-pct" class="font-mono text-emerald-400">节省 28.0% 参数！</strong></div>
+          <div class="text-emerald-300/80 text-[11px]">• 拥有 2 次非线性激活，既扩大了视野，又极大抑制了过拟合！</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let k1 = 3;
+    let k2 = 3;
+
+    // Fixed dimension canvas sizes to fit cleanly on screen
+    const l2Dim = 3; // L2 is 3x3
+    let l1Dim = 5;   // will adapt based on k2
+    let l0Dim = 7;   // will adapt based on RF
+
+    let selectedZ = { r: 1, c: 1 }; // Default center
+
+    function onRFChange() {
+      k1 = parseInt(document.getElementById('k1-slider').value);
+      k2 = parseInt(document.getElementById('k2-slider').value);
+
+      document.getElementById('k1-val').innerText = `${k1} × ${k1}`;
+      document.getElementById('k2-val').innerText = `${k2} × ${k2}`;
+
+      // Calculate RF: RF1 = k1; RF2 = RF1 + (k2 - 1)
+      const rf = k1 + (k2 - 1);
+
+      document.getElementById('f-k1').innerText = k1;
+      document.getElementById('f-k2').innerText = k2;
+      document.getElementById('f-rf-res').innerText = `${rf} × ${rf} (${rf * rf} 像素)`;
+
+      document.getElementById('badge-l2').innerText = `核大小 ${k2}×${k2}`;
+      document.getElementById('badge-l1').innerText = `核大小 ${k1}×${k1} | 局部感受野为 ${k1}×${k1}`;
+      document.getElementById('desc-l2-to-l1').innerText = `向下汇聚 k₂×k₂ (${k2}×${k2}) 神经元集群`;
+      document.getElementById('desc-l1-to-l0').innerText = `每个蓝色神经元各向原始图像展开 k₁×k₁ (${k1}×${k1}) 视野`;
+
+      // Adapt canvas dimensions
+      l1Dim = l2Dim + k2 - 1;
+      l0Dim = l1Dim + k1 - 1;
+
+      // Stats calculation
+      const singleParams = rf * rf;
+      const cascadeParams = (k1 * k1) + (k2 * k2);
+      const savedPct = Math.round((singleParams - cascadeParams) / singleParams * 1000) / 10;
+
+      document.getElementById('stat-single-size').innerText = `${rf} × ${rf}`;
+      document.getElementById('stat-single-params').innerText = `${singleParams} 个参数`;
+      document.getElementById('stat-cascade-params').innerText = `(${k1}×${k1}) + (${k2}×${k2}) = ${cascadeParams} 个参数`;
+      
+      if (savedPct > 0) {
+        document.getElementById('stat-save-pct').innerText = `节省 ${savedPct}% 参数！`;
+        document.getElementById('stat-save-pct').className = "font-mono text-emerald-400";
+      } else {
+        document.getElementById('stat-save-pct').innerText = `参数量等价或增加 (${savedPct}%)`;
+        document.getElementById('stat-save-pct').className = "font-mono text-slate-400";
+      }
+
+      renderPyramid();
+    }
+
+    function renderPyramid() {
+      renderL2();
+      renderL1();
+      renderL0();
+      highlightPyramid(selectedZ.r, selectedZ.c);
+    }
+
+    function renderL2() {
+      const g = document.getElementById('grid-l2');
+      g.innerHTML = '';
+      g.style.gridTemplateColumns = `repeat(${l2Dim}, minmax(0, 1fr))`;
+
+      for (let r = 0; r < l2Dim; r++) {
+        for (let c = 0; c < l2Dim; c++) {
+          const d = document.createElement('div');
+          d.id = `rf-l2-${r}-${c}`;
+          d.className = 'w-8 h-8 md:w-9 md:h-9 rounded-lg flex items-center justify-center font-mono text-xs font-bold border transition-all cursor-pointer bg-slate-800 text-slate-400 border-slate-700';
+          d.innerText = `Z`;
+          d.onmouseenter = () => highlightPyramid(r, c);
+          g.appendChild(d);
+        }
+      }
+    }
+
+    function renderL1() {
+      const g = document.getElementById('grid-l1');
+      g.innerHTML = '';
+      g.style.gridTemplateColumns = `repeat(${l1Dim}, minmax(0, 1fr))`;
+
+      for (let r = 0; r < l1Dim; r++) {
+        for (let c = 0; c < l1Dim; c++) {
+          const d = document.createElement('div');
+          d.id = `rf-l1-${r}-${c}`;
+          d.className = 'w-6 h-6 md:w-7 md:h-7 rounded flex items-center justify-center font-mono text-[10px] border transition-all bg-slate-900 text-slate-600 border-slate-800';
+          d.innerText = `H`;
+          g.appendChild(d);
+        }
+      }
+    }
+
+    function renderL0() {
+      const g = document.getElementById('grid-l0');
+      g.innerHTML = '';
+      g.style.gridTemplateColumns = `repeat(${l0Dim}, minmax(0, 1fr))`;
+
+      for (let r = 0; r < l0Dim; r++) {
+        for (let c = 0; c < l0Dim; c++) {
+          const d = document.createElement('div');
+          d.id = `rf-l0-${r}-${c}`;
+          d.className = 'w-5 h-5 md:w-6 md:h-6 rounded flex items-center justify-center font-mono text-[9px] border transition-all bg-slate-900 text-slate-600 border-slate-800';
+          d.innerText = `X`;
+          g.appendChild(d);
+        }
+      }
+    }
+
+    function highlightPyramid(zr, zc) {
+      selectedZ = { r: zr, c: zc };
+
+      // Highlight target in L2
+      for (let r = 0; r < l2Dim; r++) {
+        for (let c = 0; c < l2Dim; c++) {
+          const el = document.getElementById(`rf-l2-${r}-${c}`);
+          if (el) el.className = 'w-8 h-8 md:w-9 md:h-9 rounded-lg flex items-center justify-center font-mono text-xs font-bold border transition-all cursor-pointer bg-slate-800 text-slate-400 border-slate-700';
+        }
+      }
+      const targetL2 = document.getElementById(`rf-l2-${zr}-${zc}`);
+      if (targetL2) targetL2.className = 'w-8 h-8 md:w-9 md:h-9 rounded-lg flex items-center justify-center font-mono text-xs font-bold border transition-all cursor-pointer bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400 scale-110 z-20 shadow-lg shadow-amber-500/20';
+
+      // Highlight L1: [zr .. zr + k2 - 1]
+      for (let r = 0; r < l1Dim; r++) {
+        for (let c = 0; c < l1Dim; c++) {
+          const el = document.getElementById(`rf-l1-${r}-${c}`);
+          if (el) el.className = 'w-6 h-6 md:w-7 md:h-7 rounded flex items-center justify-center font-mono text-[10px] border transition-all bg-slate-900 text-slate-600 border-slate-800';
+        }
+      }
+      for (let r = zr; r < zr + k2; r++) {
+        for (let c = zc; c < zc + k2; c++) {
+          const el = document.getElementById(`rf-l1-${r}-${c}`);
+          if (el) el.className = 'w-6 h-6 md:w-7 md:h-7 rounded flex items-center justify-center font-mono text-[10px] font-bold border transition-all bg-sky-500 text-slate-950 border-sky-300 ring-1 ring-sky-400 scale-105 z-10';
+        }
+      }
+      document.getElementById('desc-l1-active').innerText = `高亮区域为该目标神经元直接调用的 ${k2}×${k2} 蓝色集群`;
+
+      // Highlight L0: [zr .. zr + RF - 1] where RF = k1 + k2 - 1
+      const rf = k1 + k2 - 1;
+      for (let r = 0; r < l0Dim; r++) {
+        for (let c = 0; c < l0Dim; c++) {
+          const el = document.getElementById(`rf-l0-${r}-${c}`);
+          if (el) el.className = 'w-5 h-5 md:w-6 md:h-6 rounded flex items-center justify-center font-mono text-[9px] border transition-all bg-slate-900 text-slate-600 border-slate-800';
+        }
+      }
+      for (let r = zr; r < zr + rf; r++) {
+        for (let c = zc; c < zc + rf; c++) {
+          const el = document.getElementById(`rf-l0-${r}-${c}`);
+          if (el) el.className = 'w-5 h-5 md:w-6 md:h-6 rounded flex items-center justify-center font-mono text-[9px] font-bold border transition-all bg-emerald-500 text-slate-950 border-emerald-300 ring-1 ring-emerald-400 scale-105 z-10';
+        }
+      }
+      document.getElementById('desc-l0-rf').innerHTML = `<span>🔥</span> 最终实际感受野：覆盖原始图像的 <strong>${rf}×${rf} (${rf * rf} 个绿色像素)</strong>！`;
+    }
+
+    function applyRFPreset(k1Val, k2Val) {
+      document.getElementById('k1-slider').value = k1Val;
+      document.getElementById('k2-slider').value = k2Val;
+      onRFChange();
+    }
+
+    // Initial Load
+    onRFChange();
+  </script>
+</body>
+</html>

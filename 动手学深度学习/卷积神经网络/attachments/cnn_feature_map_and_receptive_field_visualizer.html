@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CNN 特征映射与感受野交互可视化</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --border-color: #334155;
+      --accent: #38bdf8;
+      --accent-hover: #0ea5e9;
+    }
+    body {
+      background-color: var(--bg);
+      color: #f1f5f9;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    .grid-cell {
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .grid-cell:hover {
+      transform: scale(1.08);
+      z-index: 10;
+    }
+  </style>
+</head>
+<body class="p-4 md:p-6 select-none">
+  <div class="max-w-5xl mx-auto space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-700 pb-4 gap-4">
+      <div>
+        <h1 class="text-2xl font-bold text-sky-400 flex items-center gap-2">
+          <span>🔍</span> CNN 深度可视化工作台
+        </h1>
+        <p class="text-sm text-slate-400 mt-1">直观透视：特征映射（Feature Map）计算与感受野（Receptive Field）逐层滚雪球</p>
+      </div>
+      <!-- Tab Controls -->
+      <div class="flex bg-slate-800 p-1 rounded-xl border border-slate-700">
+        <button id="tab1-btn" onclick="switchTab(1)" class="px-4 py-2 rounded-lg text-sm font-semibold transition-all bg-sky-500 text-white shadow-md">
+          1. 特征映射 (Feature Map)
+        </button>
+        <button id="tab2-btn" onclick="switchTab(2)" class="px-4 py-2 rounded-lg text-sm font-semibold transition-all text-slate-400 hover:text-white">
+          2. 感受野 (Receptive Field)
+        </button>
+      </div>
+    </div>
+
+    <!-- TAB 1: FEATURE MAP VISUALIZER -->
+    <div id="tab1-content" class="space-y-6">
+      <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/80 text-sm leading-relaxed text-slate-300">
+        <strong class="text-sky-300">💡 交互提示：</strong> 鼠标滑过右侧的<strong>特征图（Feature Map）</strong>中的任意单元格，左侧输入图像将自动联动高亮<strong>对应的卷积滑窗</strong>，下方实时显示当前位置的点乘求和公式！
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+        <!-- Input Image X -->
+        <div class="lg:col-span-5 bg-slate-900/80 p-5 rounded-2xl border border-slate-700 shadow-xl flex flex-col items-center">
+          <div class="flex items-center justify-between w-full mb-3">
+            <span class="font-bold text-slate-200 text-base">输入图像 X (6×8 像素)</span>
+            <span class="text-xs text-slate-400 bg-slate-800 px-2.5 py-1 rounded-full border border-slate-700">白=1.0, 黑=0.0</span>
+          </div>
+          <div id="input-grid" class="grid grid-cols-8 gap-1.5 p-2 bg-slate-950 rounded-xl border border-slate-800"></div>
+          <div class="mt-3 text-xs text-slate-400 text-center">左2列白，中4列黑，右2列白（中央垂直黑带）</div>
+        </div>
+
+        <!-- Kernel -->
+        <div class="lg:col-span-2 flex flex-col items-center justify-center gap-2">
+          <div class="text-xs uppercase tracking-wider text-slate-400 font-bold">卷积核 K (1×2)</div>
+          <div class="flex gap-1.5 p-2 bg-sky-950/60 rounded-xl border border-sky-500/50 shadow-lg shadow-sky-500/10">
+            <div class="w-10 h-10 flex items-center justify-center font-bold text-sm bg-sky-500 text-slate-900 rounded-lg shadow">+1.0</div>
+            <div class="w-10 h-10 flex items-center justify-center font-bold text-sm bg-rose-500 text-white rounded-lg shadow">-1.0</div>
+          </div>
+          <div class="text-xs text-sky-400 font-medium">水平差分核 (检测竖边)</div>
+          <div class="text-slate-500 text-lg">➔ 卷积扫描 ➔</div>
+        </div>
+
+        <!-- Output Feature Map Y -->
+        <div class="lg:col-span-5 bg-slate-900/80 p-5 rounded-2xl border border-slate-700 shadow-xl flex flex-col items-center">
+          <div class="flex items-center justify-between w-full mb-3">
+            <span class="font-bold text-emerald-400 text-base">输出特征图 Y (6×7)</span>
+            <span class="text-xs text-emerald-400/80 bg-emerald-950/40 px-2.5 py-1 rounded-full border border-emerald-800/60">鼠标悬停查看</span>
+          </div>
+          <div id="output-grid" class="grid grid-cols-7 gap-1.5 p-2 bg-slate-950 rounded-xl border border-slate-800"></div>
+          <div class="mt-3 text-xs text-slate-400 text-center">绿色=+1(白变黑边缘)，红色=-1(黑变白边缘)，灰色=0(平坦区)</div>
+        </div>
+      </div>
+
+      <!-- Live Math Calculation Banner -->
+      <div id="calc-banner" class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-4 rounded-xl border border-sky-500/30 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-3 h-3 rounded-full bg-sky-400 animate-pulse"></div>
+          <span class="text-slate-300 font-medium text-sm">当前计算位置: <span id="pos-info" class="text-sky-300 font-mono font-bold">Y[0, 1]</span></span>
+        </div>
+        <div class="text-sm font-mono bg-slate-950 px-4 py-2 rounded-lg border border-slate-700 text-slate-200">
+          <span id="math-formula">Y[0, 1] = (1.0 × 1.0) + (0.0 × -1.0) = <strong class="text-emerald-400">+1.0</strong> (捕捉到垂直边缘!)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: RECEPTIVE FIELD VISUALIZER -->
+    <div id="tab2-content" class="hidden space-y-6">
+      <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/80 text-sm leading-relaxed text-slate-300 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div>
+          <strong class="text-amber-300">💡 交互提示：</strong> 鼠标点击或悬停在<strong>第 2 层特征图</strong>的中心神经元上，观察视野如何逐层向下投射，在原始图像上形成 <strong>5×5 感受野</strong>！
+        </div>
+        <div class="flex items-center gap-2 text-xs">
+          <button onclick="toggleRF(true)" class="px-2.5 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-lg hover:bg-amber-500/30">聚焦中心</button>
+          <button onclick="toggleRF(false)" class="px-2.5 py-1 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600">全图概览</button>
+        </div>
+      </div>
+
+      <!-- 3-Tier Receptive Field Pyramid -->
+      <div class="bg-slate-900 p-6 rounded-2xl border border-slate-700 space-y-8">
+        <!-- Layer 2 (Top) -->
+        <div class="flex flex-col items-center">
+          <div class="text-sm font-bold text-amber-400 mb-2 flex items-center gap-2">
+            <span>🔹 第 2 层特征图 (3×3)</span>
+            <span class="text-xs bg-amber-950/60 text-amber-300 px-2 py-0.5 rounded border border-amber-800">卷积核 3×3</span>
+          </div>
+          <div id="rf-l2" class="grid grid-cols-3 gap-2 p-2 bg-slate-950 rounded-xl border border-slate-800"></div>
+          <div class="text-xs text-slate-400 mt-1">中心神经元 Z[1, 1] 正在向下“俯瞰”第 1 层</div>
+        </div>
+
+        <!-- Connection Arrow -->
+        <div class="flex justify-center text-amber-400/80 text-xs font-mono">
+          ▼ 第 2 层 3×3 卷积窗口向下聚合 ▼
+        </div>
+
+        <!-- Layer 1 (Middle) -->
+        <div class="flex flex-col items-center">
+          <div class="text-sm font-bold text-sky-400 mb-2 flex items-center gap-2">
+            <span>🔹 第 1 层特征图 (5×5)</span>
+            <span class="text-xs bg-sky-950/60 text-sky-300 px-2 py-0.5 rounded border border-sky-800">每个元素自身感受野为 3×3</span>
+          </div>
+          <div id="rf-l1" class="grid grid-cols-5 gap-1.5 p-2 bg-slate-950 rounded-xl border border-slate-800"></div>
+          <div class="text-xs text-slate-400 mt-1">高亮部分为 Z[1, 1] 直接调用的 3×3 神经元集群</div>
+        </div>
+
+        <!-- Connection Arrow -->
+        <div class="flex justify-center text-sky-400/80 text-xs font-mono">
+          ▼ 第 1 层的每个神经元，再分别向下聚合原始 3×3 像素 ▼
+        </div>
+
+        <!-- Layer 0 (Bottom / Input) -->
+        <div class="flex flex-col items-center">
+          <div class="text-sm font-bold text-emerald-400 mb-2 flex items-center gap-2">
+            <span>🔹 原始输入图像 (7×7)</span>
+            <span class="text-xs bg-emerald-950/60 text-emerald-300 px-2 py-0.5 rounded border border-emerald-800">金字塔底座</span>
+          </div>
+          <div id="rf-l0" class="grid grid-cols-7 gap-1 p-2 bg-slate-950 rounded-xl border border-slate-800"></div>
+          <div class="text-xs text-emerald-300 mt-2 font-medium">
+            🔥 惊艳结论：高亮区域覆盖了原始图像的 <strong>5×5 (25个像素)</strong>！这就是 Z[1, 1] 的真实感受野！
+          </div>
+        </div>
+      </div>
+
+      <!-- Parameters Comparison Box -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700">
+          <h4 class="font-bold text-rose-400 text-sm mb-2">❌ 方案 A：单层 5×5 大卷积核直连</h4>
+          <ul class="text-xs text-slate-300 space-y-1">
+            <li>• 达到 5×5 感受野所需参数量：<strong class="text-white">5 × 5 = 25 个参数</strong></li>
+            <li>• 只能插入 1 次激活函数（非线性能力弱）</li>
+            <li>• 计算开销大，易过拟合</li>
+          </ul>
+        </div>
+        <div class="bg-slate-800/80 p-4 rounded-xl border border-emerald-500/40 bg-emerald-950/10">
+          <h4 class="font-bold text-emerald-400 text-sm mb-2">✅ 方案 B：两层 3×3 小卷积核级联 (VGG 哲学)</h4>
+          <ul class="text-xs text-slate-300 space-y-1">
+            <li>• 同样达到 5×5 感受野所需参数量：<strong class="text-emerald-300">2 × (3 × 3) = 18 个参数</strong> (节省 28% 参数！)</li>
+            <li>• 拥有 2 次 ReLU 激活函数（拟合能力更强）</li>
+            <li>• 感受野逐层翻倍，以小博大，兼顾局部细节与全局大局！</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Tab switching
+    function switchTab(idx) {
+      const t1b = document.getElementById('tab1-btn');
+      const t2b = document.getElementById('tab2-btn');
+      const t1c = document.getElementById('tab1-content');
+      const t2c = document.getElementById('tab2-content');
+
+      if (idx === 1) {
+        t1b.className = "px-4 py-2 rounded-lg text-sm font-semibold transition-all bg-sky-500 text-white shadow-md";
+        t2b.className = "px-4 py-2 rounded-lg text-sm font-semibold transition-all text-slate-400 hover:text-white";
+        t1c.classList.remove('hidden');
+        t2c.classList.add('hidden');
+      } else {
+        t2b.className = "px-4 py-2 rounded-lg text-sm font-semibold transition-all bg-sky-500 text-white shadow-md";
+        t1b.className = "px-4 py-2 rounded-lg text-sm font-semibold transition-all text-slate-400 hover:text-white";
+        t2c.classList.remove('hidden');
+        t1c.classList.add('hidden');
+      }
+    }
+
+    // TAB 1 Setup: Input Matrix X (6x8)
+    const X = [
+      [1, 1, 0, 0, 0, 0, 1, 1],
+      [1, 1, 0, 0, 0, 0, 1, 1],
+      [1, 1, 0, 0, 0, 0, 1, 1],
+      [1, 1, 0, 0, 0, 0, 1, 1],
+      [1, 1, 0, 0, 0, 0, 1, 1],
+      [1, 1, 0, 0, 0, 0, 1, 1]
+    ];
+    const K = [1.0, -1.0];
+
+    // Compute Y (6x7)
+    const Y = [];
+    for (let i = 0; i < 6; i++) {
+      Y[i] = [];
+      for (let j = 0; j < 7; j++) {
+        Y[i][j] = X[i][j] * K[0] + X[i][j+1] * K[1];
+      }
+    }
+
+    const inputGrid = document.getElementById('input-grid');
+    const outputGrid = document.getElementById('output-grid');
+
+    // Render Input Grid
+    for (let r = 0; r < 6; r++) {
+      for (let c = 0; c < 8; c++) {
+        const d = document.createElement('div');
+        d.id = `x-${r}-${c}`;
+        d.className = `w-8 h-8 rounded flex items-center justify-center font-mono text-xs font-bold transition-all border ${
+          X[r][c] === 1 ? 'bg-slate-200 text-slate-900 border-slate-300' : 'bg-slate-900 text-slate-500 border-slate-800'
+        }`;
+        d.innerText = X[r][c];
+        inputGrid.appendChild(d);
+      }
+    }
+
+    // Render Output Grid
+    for (let r = 0; r < 6; r++) {
+      for (let c = 0; c < 7; c++) {
+        const val = Y[r][c];
+        const d = document.createElement('div');
+        d.id = `y-${r}-${c}`;
+        let colorClass = 'bg-slate-800/80 text-slate-400 border-slate-700';
+        if (val > 0) colorClass = 'bg-emerald-500/90 text-white font-bold border-emerald-400 shadow-md shadow-emerald-500/20';
+        else if (val < 0) colorClass = 'bg-rose-500/90 text-white font-bold border-rose-400 shadow-md shadow-rose-500/20';
+
+        d.className = `w-8 h-8 rounded flex items-center justify-center font-mono text-xs transition-all border cursor-pointer grid-cell ${colorClass}`;
+        d.innerText = val > 0 ? `+${val}` : val;
+
+        d.addEventListener('mouseenter', () => highlightStep(r, c));
+        outputGrid.appendChild(d);
+      }
+    }
+
+    function highlightStep(r, c) {
+      // Clear all highlights on X
+      for (let i = 0; i < 6; i++) {
+        for (let j = 0; j < 8; j++) {
+          const el = document.getElementById(`x-${i}-${j}`);
+          el.classList.remove('ring-4', 'ring-sky-400', 'ring-rose-400', 'z-20', 'scale-110');
+        }
+      }
+      // Highlight the 2 cells on X
+      const leftCell = document.getElementById(`x-${r}-${c}`);
+      const rightCell = document.getElementById(`x-${r}-${c+1}`);
+      leftCell.classList.add('ring-4', 'ring-sky-400', 'z-20', 'scale-110');
+      rightCell.classList.add('ring-4', 'ring-rose-400', 'z-20', 'scale-110');
+
+      // Update banner
+      document.getElementById('pos-info').innerText = `Y[${r}, ${c}]`;
+      const val = Y[r][c];
+      let desc = '处于平坦区域，无边缘反应';
+      let valColor = 'text-slate-400';
+      if (val > 0) {
+        desc = '捕捉到从白到黑的【强垂直边缘】！';
+        valColor = 'text-emerald-400';
+      } else if (val < 0) {
+        desc = '捕捉到从黑到白的【强垂直边缘】！';
+        valColor = 'text-rose-400';
+      }
+
+      document.getElementById('math-formula').innerHTML = 
+        `Y[${r}, ${c}] = (${X[r][c]}.0 × <span class="text-sky-300">+1.0</span>) + (${X[r][c+1]}.0 × <span class="text-rose-300">-1.0</span>) = <strong class="${valColor}">${val > 0 ? '+'+val : val}.0</strong> <span class="text-slate-400 ml-2">(${desc})</span>`;
+    }
+
+    // Default highlight
+    highlightStep(0, 1);
+
+    // TAB 2 Setup: Receptive Field Pyramid
+    const rfL2 = document.getElementById('rf-l2');
+    const rfL1 = document.getElementById('rf-l1');
+    const rfL0 = document.getElementById('rf-l0');
+
+    // Create L2 (3x3)
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 3; c++) {
+        const d = document.createElement('div');
+        d.id = `l2-${r}-${c}`;
+        d.className = 'w-10 h-10 rounded-lg flex items-center justify-center font-mono text-xs font-bold border transition-all cursor-pointer ' + 
+          (r === 1 && c === 1 ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400' : 'bg-slate-800 text-slate-400 border-slate-700');
+        d.innerText = `Z[${r},${c}]`;
+        d.addEventListener('mouseenter', () => updateRF(r, c));
+        rfL2.appendChild(d);
+      }
+    }
+
+    // Create L1 (5x5)
+    for (let r = 0; r < 5; r++) {
+      for (let c = 0; c < 5; c++) {
+        const d = document.createElement('div');
+        d.id = `l1-${r}-${c}`;
+        d.className = 'w-8 h-8 rounded-lg flex items-center justify-center font-mono text-xs border transition-all bg-slate-900 text-slate-500 border-slate-800';
+        d.innerText = `H`;
+        rfL1.appendChild(d);
+      }
+    }
+
+    // Create L0 (7x7)
+    for (let r = 0; r < 7; r++) {
+      for (let c = 0; c < 7; c++) {
+        const d = document.createElement('div');
+        d.id = `l0-${r}-${c}`;
+        d.className = 'w-7 h-7 rounded flex items-center justify-center font-mono text-xs border transition-all bg-slate-900 text-slate-600 border-slate-800';
+        d.innerText = `X`;
+        rfL0.appendChild(d);
+      }
+    }
+
+    function updateRF(targetR, targetC) {
+      // Clear L2 styles
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 3; c++) {
+          const el = document.getElementById(`l2-${r}-${c}`);
+          el.className = 'w-10 h-10 rounded-lg flex items-center justify-center font-mono text-xs font-bold border transition-all cursor-pointer bg-slate-800 text-slate-400 border-slate-700';
+        }
+      }
+      document.getElementById(`l2-${targetR}-${targetC}`).className = 'w-10 h-10 rounded-lg flex items-center justify-center font-mono text-xs font-bold border transition-all cursor-pointer bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400 scale-105';
+
+      // Clear L1
+      for (let r = 0; r < 5; r++) {
+        for (let c = 0; c < 5; c++) {
+          const el = document.getElementById(`l1-${r}-${c}`);
+          el.className = 'w-8 h-8 rounded-lg flex items-center justify-center font-mono text-xs border transition-all bg-slate-900 text-slate-500 border-slate-800';
+        }
+      }
+      // Highlight L1: [targetR .. targetR+2], [targetC .. targetC+2]
+      for (let r = targetR; r <= targetR + 2; r++) {
+        for (let c = targetC; c <= targetC + 2; c++) {
+          const el = document.getElementById(`l1-${r}-${c}`);
+          if (el) el.className = 'w-8 h-8 rounded-lg flex items-center justify-center font-mono text-xs border transition-all bg-sky-500 text-slate-950 font-bold border-sky-300 ring-2 ring-sky-400 scale-105';
+        }
+      }
+
+      // Clear L0
+      for (let r = 0; r < 7; r++) {
+        for (let c = 0; c < 7; c++) {
+          const el = document.getElementById(`l0-${r}-${c}`);
+          el.className = 'w-7 h-7 rounded flex items-center justify-center font-mono text-xs border transition-all bg-slate-900 text-slate-600 border-slate-800';
+        }
+      }
+      // Highlight L0: [targetR .. targetR+4], [targetC .. targetC+4]
+      for (let r = targetR; r <= targetR + 4; r++) {
+        for (let c = targetC; c <= targetC + 4; c++) {
+          const el = document.getElementById(`l0-${r}-${c}`);
+          if (el) el.className = 'w-7 h-7 rounded flex items-center justify-center font-mono text-xs border transition-all bg-emerald-500 text-slate-950 font-bold border-emerald-300 ring-1 ring-emerald-400 scale-105';
+        }
+      }
+    }
+
+    function toggleRF(focus) {
+      if (focus) updateRF(1, 1);
+      else updateRF(0, 0);
+    }
+
+    // Default L2 center
+    updateRF(1, 1);
+  </script>
+</body>
+</html>

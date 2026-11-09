@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>全动态 CNN 卷积与感受野沙盘</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: #131c2e;
+      --border-color: #24344d;
+    }
+    body {
+      background-color: var(--bg);
+      color: #f1f5f9;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    input[type=range] {
+      accent-color: #38bdf8;
+    }
+    .grid-cell {
+      transition: all 0.15s ease-out;
+    }
+    .grid-cell:hover {
+      transform: scale(1.08);
+      z-index: 10;
+    }
+  </style>
+</head>
+<body class="p-3 md:p-6 select-none min-h-screen">
+  <div class="max-w-6xl mx-auto space-y-6">
+
+    <!-- Header & Mode Switcher -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-800 pb-4 gap-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="text-2xl">🎛️</span>
+          <h1 class="text-2xl font-bold bg-gradient-to-r from-sky-400 to-indigo-400 bg-clip-text text-transparent">
+            全动态 CNN 尺寸交互演练沙盘
+          </h1>
+        </div>
+        <p class="text-xs md:text-sm text-slate-400 mt-1">
+          自由调节任意输入图像与卷积核的尺寸（高/宽），实时验证公式：
+          <span class="font-mono text-sky-300 font-semibold">(n_h - k_h + 1) × (n_w - k_w + 1)</span>
+        </p>
+      </div>
+
+      <!-- Quick Preset Controls -->
+      <div class="flex flex-wrap items-center gap-2">
+        <button onclick="applyPreset('edge_1x2')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-300 text-xs font-medium rounded-lg border border-slate-700 transition">
+          经典垂直边缘 (6×8图 + 1×2核)
+        </button>
+        <button onclick="applyPreset('square_3x3')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-emerald-300 text-xs font-medium rounded-lg border border-slate-700 transition">
+          标准3×3核 (7×7图 + 3×3核)
+        </button>
+        <button onclick="applyPreset('large_5x5')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-medium rounded-lg border border-slate-700 transition">
+          大核扫描 (9×9图 + 5×5核)
+        </button>
+      </div>
+    </div>
+
+    <!-- Sliders & Dimension Control Panel -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-slate-900/90 p-4 rounded-2xl border border-slate-800 shadow-xl">
+      <!-- Input Height -->
+      <div class="space-y-1.5 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
+        <div class="flex justify-between items-center text-xs">
+          <span class="text-slate-400">输入图像高度 <code class="text-sky-300">n_h</code></span>
+          <span id="nh-val" class="font-bold text-sky-400 font-mono text-sm">6</span>
+        </div>
+        <input id="nh-slider" type="range" min="3" max="10" value="6" oninput="onSizeChange()" class="w-full cursor-pointer h-1.5 bg-slate-800 rounded-lg">
+      </div>
+
+      <!-- Input Width -->
+      <div class="space-y-1.5 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
+        <div class="flex justify-between items-center text-xs">
+          <span class="text-slate-400">输入图像宽度 <code class="text-sky-300">n_w</code></span>
+          <span id="nw-val" class="font-bold text-sky-400 font-mono text-sm">8</span>
+        </div>
+        <input id="nw-slider" type="range" min="3" max="10" value="8" oninput="onSizeChange()" class="w-full cursor-pointer h-1.5 bg-slate-800 rounded-lg">
+      </div>
+
+      <!-- Kernel Height -->
+      <div class="space-y-1.5 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
+        <div class="flex justify-between items-center text-xs">
+          <span class="text-slate-400">卷积核高度 <code class="text-amber-300">k_h</code></span>
+          <span id="kh-val" class="font-bold text-amber-400 font-mono text-sm">1</span>
+        </div>
+        <input id="kh-slider" type="range" min="1" max="5" value="1" oninput="onSizeChange()" class="w-full cursor-pointer h-1.5 bg-slate-800 rounded-lg">
+      </div>
+
+      <!-- Kernel Width -->
+      <div class="space-y-1.5 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
+        <div class="flex justify-between items-center text-xs">
+          <span class="text-slate-400">卷积核宽度 <code class="text-amber-300">k_w</code></span>
+          <span id="kw-val" class="font-bold text-amber-400 font-mono text-sm">2</span>
+        </div>
+        <input id="kw-slider" type="range" min="1" max="5" value="2" oninput="onSizeChange()" class="w-full cursor-pointer h-1.5 bg-slate-800 rounded-lg">
+      </div>
+    </div>
+
+    <!-- Live Formula Banner -->
+    <div class="bg-gradient-to-r from-sky-950/40 via-indigo-950/40 to-slate-950/60 p-4 rounded-xl border border-sky-500/30 flex flex-col md:flex-row items-center justify-between gap-3 text-xs md:text-sm">
+      <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+        <span class="text-slate-300">尺寸推算公式：</span>
+        <span class="font-mono bg-slate-900 px-3 py-1 rounded-lg border border-slate-700 text-sky-300">
+          (<span id="f-nh">6</span> - <span id="f-kh">1</span> + 1) × (<span id="f-nw">8</span> - <span id="f-kw">2</span> + 1)
+        </span>
+      </div>
+      <div class="font-mono text-slate-200">
+        ➔ 输出特征图尺寸为：<strong id="f-out" class="text-emerald-400 text-base">6 × 7</strong>
+      </div>
+    </div>
+
+    <!-- 3-Column Interactive Grids Stage -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+      <!-- Column 1: Input Matrix X -->
+      <div class="lg:col-span-5 bg-slate-900/90 p-4 rounded-2xl border border-slate-800 shadow-xl flex flex-col items-center">
+        <div class="flex justify-between items-center w-full mb-3">
+          <span class="font-bold text-slate-200 text-sm flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span> 输入图像 X
+            <span id="x-dim-badge" class="font-mono text-xs text-slate-400 font-normal">(6×8)</span>
+          </span>
+          <button onclick="randomizeX()" class="text-[11px] text-slate-400 hover:text-sky-300 bg-slate-800 px-2 py-0.5 rounded border border-slate-700 transition">
+            🎲 随机像素
+          </button>
+        </div>
+
+        <!-- Dynamic Grid Container -->
+        <div class="w-full flex justify-center p-2 bg-slate-950 rounded-xl border border-slate-800/80 overflow-auto max-h-[360px]">
+          <div id="grid-x" class="grid gap-1"></div>
+        </div>
+        <div class="text-[11px] text-slate-500 mt-2 text-center">💡 提示：点击任意像素可切换其数值 (0 ↔ 1)</div>
+      </div>
+
+      <!-- Column 2: Kernel K -->
+      <div class="lg:col-span-2 bg-slate-900/90 p-4 rounded-2xl border border-slate-800 shadow-xl flex flex-col items-center justify-between min-h-[300px]">
+        <div class="w-full text-center">
+          <span class="font-bold text-amber-300 text-sm flex items-center justify-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-amber-400"></span> 卷积核 K
+          </span>
+          <div id="k-dim-badge" class="font-mono text-xs text-slate-400 mt-0.5">(1×2)</div>
+        </div>
+
+        <!-- Dynamic Kernel Grid -->
+        <div class="my-auto p-2 bg-amber-950/20 rounded-xl border border-amber-500/30 shadow-lg shadow-amber-500/5">
+          <div id="grid-k" class="grid gap-1.5"></div>
+        </div>
+
+        <div class="w-full text-center space-y-1">
+          <div class="text-[11px] text-slate-400 font-medium">滑窗点乘求和</div>
+          <div class="text-slate-600 text-xs font-mono">⬇ 逐行扫描 ⬇</div>
+        </div>
+      </div>
+
+      <!-- Column 3: Output Feature Map Y -->
+      <div class="lg:col-span-5 bg-slate-900/90 p-4 rounded-2xl border border-slate-800 shadow-xl flex flex-col items-center">
+        <div class="flex justify-between items-center w-full mb-3">
+          <span class="font-bold text-emerald-400 text-sm flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> 输出特征图 Y
+            <span id="y-dim-badge" class="font-mono text-xs text-emerald-300/80 font-normal">(6×7)</span>
+          </span>
+          <span class="text-[11px] text-emerald-300 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/80">
+            鼠标悬停联动
+          </span>
+        </div>
+
+        <!-- Dynamic Output Grid Container -->
+        <div class="w-full flex justify-center p-2 bg-slate-950 rounded-xl border border-slate-800/80 overflow-auto max-h-[360px]">
+          <div id="grid-y" class="grid gap-1"></div>
+        </div>
+        <div class="text-[11px] text-slate-500 mt-2 text-center">鼠标移到任意单元格，左侧自动框选对应感受野</div>
+      </div>
+
+    </div>
+
+    <!-- Live Calculation Details -->
+    <div id="calc-card" class="bg-slate-900 p-4 rounded-xl border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-3 text-xs md:text-sm">
+      <div class="flex items-center gap-2">
+        <span class="text-sky-400 font-bold">📍 当前选中:</span>
+        <span id="curr-pos" class="font-mono font-bold text-amber-300 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">Y[0, 0]</span>
+      </div>
+      <div class="font-mono text-slate-300 overflow-x-auto max-w-full py-1">
+        <span id="curr-math">计算式解析中...</span>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // State Variables
+    let nh = 6, nw = 8;
+    let kh = 1, kw = 2;
+    let X = [];
+    let K = [];
+    let Y = [];
+    let selectedY = { r: 0, c: 0 };
+
+    // Initialize Default Matrix X (Vertical Stripe)
+    function initX() {
+      X = [];
+      for (let r = 0; r < nh; r++) {
+        X[r] = [];
+        for (let c = 0; c < nw; c++) {
+          // If middle columns, set 0; else 1 (vertical stripe pattern)
+          if (c >= Math.floor(nw * 0.25) && c < Math.floor(nw * 0.75)) {
+            X[r][c] = 0;
+          } else {
+            X[r][c] = 1;
+          }
+        }
+      }
+    }
+
+    // Initialize Default Kernel K
+    function initK() {
+      K = [];
+      for (let r = 0; r < kh; r++) {
+        K[r] = [];
+        for (let c = 0; c < kw; c++) {
+          if (kh === 1 && kw === 2) {
+            K[r][c] = c === 0 ? 1.0 : -1.0;
+          } else if (kh === 3 && kw === 3) {
+            // Laplacian or uniform
+            K[r][c] = (r === 1 && c === 1) ? -8.0 : 1.0;
+          } else {
+            // Default 1/n
+            K[r][c] = 1.0;
+          }
+        }
+      }
+    }
+
+    // Compute Output Feature Map Y
+    function computeY() {
+      const outH = nh - kh + 1;
+      const outW = nw - kw + 1;
+      Y = [];
+      for (let r = 0; r < outH; r++) {
+        Y[r] = [];
+        for (let c = 0; c < outW; c++) {
+          let sum = 0;
+          for (let kr = 0; kr < kh; kr++) {
+            for (let kc = 0; kc < kw; kc++) {
+              sum += X[r + kr][c + kc] * K[kr][kc];
+            }
+          }
+          // Round to 2 decimals
+          Y[r][c] = Math.round(sum * 100) / 100;
+        }
+      }
+    }
+
+    // Slider onInput Handler
+    function onSizeChange() {
+      nh = parseInt(document.getElementById('nh-slider').value);
+      nw = parseInt(document.getElementById('nw-slider').value);
+      kh = parseInt(document.getElementById('kh-slider').value);
+      kw = parseInt(document.getElementById('kw-slider').value);
+
+      // Guard: Kernel size cannot exceed input size
+      if (kh > nh) {
+        kh = nh;
+        document.getElementById('kh-slider').value = kh;
+      }
+      if (kw > nw) {
+        kw = nw;
+        document.getElementById('kw-slider').value = kw;
+      }
+
+      // Update labels
+      document.getElementById('nh-val').innerText = nh;
+      document.getElementById('nw-val').innerText = nw;
+      document.getElementById('kh-val').innerText = kh;
+      document.getElementById('kw-val').innerText = kw;
+
+      // Update formula
+      const outH = nh - kh + 1;
+      const outW = nw - kw + 1;
+      document.getElementById('f-nh').innerText = nh;
+      document.getElementById('f-kh').innerText = kh;
+      document.getElementById('f-nw').innerText = nw;
+      document.getElementById('f-kw').innerText = kw;
+      document.getElementById('f-out').innerText = `${outH} × ${outW}`;
+
+      document.getElementById('x-dim-badge').innerText = `(${nh}×${nw})`;
+      document.getElementById('k-dim-badge').innerText = `(${kh}×${kw})`;
+      document.getElementById('y-dim-badge').innerText = `(${outH}×${outW})`;
+
+      // Re-initialize arrays and render
+      initX();
+      initK();
+      computeY();
+      selectedY = { r: 0, c: 0 };
+      renderAll();
+    }
+
+    // Render All Grids
+    function renderAll() {
+      renderX();
+      renderK();
+      renderY();
+      highlightSelection(selectedY.r, selectedY.c);
+    }
+
+    // Render Input Matrix X
+    function renderX() {
+      const gx = document.getElementById('grid-x');
+      gx.innerHTML = '';
+      gx.style.gridTemplateColumns = `repeat(${nw}, minmax(0, 1fr))`;
+
+      for (let r = 0; r < nh; r++) {
+        for (let c = 0; c < nw; c++) {
+          const val = X[r][c];
+          const d = document.createElement('div');
+          d.id = `cell-x-${r}-${c}`;
+          d.className = `w-7 h-7 md:w-8 md:h-8 rounded flex items-center justify-center font-mono text-xs font-bold transition-all border cursor-pointer select-none ${
+            val === 1 
+              ? 'bg-slate-200 text-slate-900 border-slate-300' 
+              : 'bg-slate-900 text-slate-500 border-slate-800'
+          }`;
+          d.innerText = val;
+          d.onclick = () => toggleXCell(r, c);
+          gx.appendChild(d);
+        }
+      }
+    }
+
+    // Toggle cell value in X
+    function toggleXCell(r, c) {
+      X[r][c] = X[r][c] === 1 ? 0 : 1;
+      computeY();
+      renderAll();
+    }
+
+    // Randomize X
+    function randomizeX() {
+      for (let r = 0; r < nh; r++) {
+        for (let c = 0; c < nw; c++) {
+          X[r][c] = Math.random() > 0.5 ? 1 : 0;
+        }
+      }
+      computeY();
+      renderAll();
+    }
+
+    // Render Kernel K
+    function renderK() {
+      const gk = document.getElementById('grid-k');
+      gk.innerHTML = '';
+      gk.style.gridTemplateColumns = `repeat(${kw}, minmax(0, 1fr))`;
+
+      for (let r = 0; r < kh; r++) {
+        for (let c = 0; c < kw; c++) {
+          const val = K[r][c];
+          const d = document.createElement('div');
+          d.id = `cell-k-${r}-${c}`;
+          let bgClass = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
+          if (val > 0) bgClass = 'bg-sky-500 text-slate-950 font-bold border-sky-400';
+          else if (val < 0) bgClass = 'bg-rose-500 text-white font-bold border-rose-400';
+
+          d.className = `w-8 h-8 md:w-9 md:h-9 rounded-lg flex items-center justify-center font-mono text-xs transition-all border ${bgClass}`;
+          d.innerText = val > 0 ? `+${val}` : `${val}`;
+          gk.appendChild(d);
+        }
+      }
+    }
+
+    // Render Output Feature Map Y
+    function renderY() {
+      const gy = document.getElementById('grid-y');
+      gy.innerHTML = '';
+      const outH = nh - kh + 1;
+      const outW = nw - kw + 1;
+      gy.style.gridTemplateColumns = `repeat(${outW}, minmax(0, 1fr))`;
+
+      for (let r = 0; r < outH; r++) {
+        for (let c = 0; c < outW; c++) {
+          const val = Y[r][c];
+          const d = document.createElement('div');
+          d.id = `cell-y-${r}-${c}`;
+
+          let colorClass = 'bg-slate-800/80 text-slate-400 border-slate-700';
+          if (val > 0) colorClass = 'bg-emerald-500 text-slate-950 font-bold border-emerald-400 shadow-md shadow-emerald-500/20';
+          else if (val < 0) colorClass = 'bg-rose-500 text-white font-bold border-rose-400 shadow-md shadow-rose-500/20';
+
+          d.className = `w-7 h-7 md:w-8 md:h-8 rounded flex items-center justify-center font-mono text-xs transition-all border cursor-pointer grid-cell ${colorClass}`;
+          d.innerText = val > 0 ? `+${val}` : `${val}`;
+
+          d.onmouseenter = () => highlightSelection(r, c);
+          gy.appendChild(d);
+        }
+      }
+    }
+
+    // Highlight Linked Sliding Window
+    function highlightSelection(yr, yc) {
+      selectedY = { r: yr, c: yc };
+      const outH = nh - kh + 1;
+      const outW = nw - kw + 1;
+
+      // Clear all active rings on Y
+      for (let r = 0; r < outH; r++) {
+        for (let c = 0; c < outW; c++) {
+          const el = document.getElementById(`cell-y-${r}-${c}`);
+          if (el) el.classList.remove('ring-2', 'ring-amber-400', 'scale-110', 'z-20');
+        }
+      }
+      const yCell = document.getElementById(`cell-y-${yr}-${yc}`);
+      if (yCell) yCell.classList.add('ring-2', 'ring-amber-400', 'scale-110', 'z-20');
+
+      // Clear all active rings on X
+      for (let r = 0; r < nh; r++) {
+        for (let c = 0; c < nw; c++) {
+          const el = document.getElementById(`cell-x-${r}-${c}`);
+          if (el) el.classList.remove('ring-4', 'ring-sky-400', 'z-20', 'scale-110', 'ring-inset');
+        }
+      }
+
+      // Highlight corresponding sliding window on X
+      let mathSteps = [];
+      for (let kr = 0; kr < kh; kr++) {
+        for (let kc = 0; kc < kw; kc++) {
+          const xr = yr + kr;
+          const xc = yc + kc;
+          const el = document.getElementById(`cell-x-${xr}-${xc}`);
+          if (el) el.classList.add('ring-4', 'ring-sky-400', 'z-20', 'scale-110');
+          mathSteps.push(`(${X[xr][xc]} × ${K[kr][kc]})`);
+        }
+      }
+
+      // Update Live Math Banner
+      document.getElementById('curr-pos').innerText = `Y[${yr}, ${yc}]`;
+      const val = Y[yr][yc];
+      let valColor = val > 0 ? 'text-emerald-400' : (val < 0 ? 'text-rose-400' : 'text-slate-400');
+      document.getElementById('curr-math').innerHTML = 
+        `Y[${yr}, ${yc}] = ${mathSteps.join(' + ')} = <strong class="${valColor} text-sm">${val > 0 ? '+'+val : val}</strong>`;
+    }
+
+    // Presets
+    function applyPreset(name) {
+      if (name === 'edge_1x2') {
+        document.getElementById('nh-slider').value = 6;
+        document.getElementById('nw-slider').value = 8;
+        document.getElementById('kh-slider').value = 1;
+        document.getElementById('kw-slider').value = 2;
+      } else if (name === 'square_3x3') {
+        document.getElementById('nh-slider').value = 7;
+        document.getElementById('nw-slider').value = 7;
+        document.getElementById('kh-slider').value = 3;
+        document.getElementById('kw-slider').value = 3;
+      } else if (name === 'large_5x5') {
+        document.getElementById('nh-slider').value = 9;
+        document.getElementById('nw-slider').value = 9;
+        document.getElementById('kh-slider').value = 5;
+        document.getElementById('kw-slider').value = 5;
+      }
+      onSizeChange();
+    }
+
+    // Initial Load
+    onSizeChange();
+  </script>
+</body>
+</html>
