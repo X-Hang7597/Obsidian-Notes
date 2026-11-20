@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AlexNet 知识全贯通大图谱</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card-bg: #1e293b;
+    --border: #334155;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --ch3: #38bdf8;
+    --ch4: #a855f7;
+    --ch5: #10b981;
+    --ch6: #f59e0b;
+    --target: #ef4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  body { background: var(--bg); color: var(--text-primary); padding: 30px 20px; line-height: 1.6; }
+  .container { max-width: 1100px; margin: 0 auto; }
+  
+  header { text-align: center; margin-bottom: 30px; }
+  header h1 { font-size: 26px; font-weight: 700; margin-bottom: 8px; color: #fff; }
+  header p { color: var(--text-secondary); font-size: 15px; }
+
+  /* 4根支柱网格 */
+  .pillars-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    margin-bottom: 30px;
+  }
+  .pillar-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .pillar-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+  }
+  .pillar-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 4px;
+  }
+  .ch3-card::before { background: var(--ch3); }
+  .ch4-card::before { background: var(--ch4); }
+  .ch5-card::before { background: var(--ch5); }
+  .ch6-card::before { background: var(--ch6); }
+
+  .pillar-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ch3-title { color: var(--ch3); }
+  .ch4-title { color: var(--ch4); }
+  .ch5-title { color: var(--ch5); }
+  .ch6-title { color: var(--ch6); }
+
+  .item-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .item-list li {
+    background: rgba(255,255,255,0.04);
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    border-left: 3px solid transparent;
+  }
+  .ch3-card .item-list li { border-left-color: var(--ch3); }
+  .ch4-card .item-list li { border-left-color: var(--ch4); }
+  .ch5-card .item-list li { border-left-color: var(--ch5); }
+  .ch6-card .item-list li { border-left-color: var(--ch6); }
+  
+  .item-name { font-weight: 600; color: #fff; margin-bottom: 2px; }
+  .item-desc { color: var(--text-secondary); font-size: 12px; }
+
+  /* 汇聚箭头指示 */
+  .convergence-arrow {
+    text-align: center;
+    margin: 10px 0 25px 0;
+    font-size: 14px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+  .arrow-line { height: 1px; flex: 1; max-width: 150px; background: linear-gradient(90deg, transparent, var(--border), transparent); }
+
+  /* 终极集成靶心 AlexNet */
+  .alexnet-target {
+    background: linear-gradient(135deg, #1e1b4b 0%, #1e293b 100%);
+    border: 2px solid #6366f1;
+    border-radius: 14px;
+    padding: 24px;
+    position: relative;
+    box-shadow: 0 8px 30px rgba(99, 102, 241, 0.2);
+  }
+  .target-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .target-title { font-size: 20px; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 10px; }
+  .badge { background: #6366f1; color: #fff; font-size: 11px; padding: 4px 10px; border-radius: 20px; font-weight: 600; }
+
+  .synergy-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+  }
+  .synergy-item {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .synergy-tag { font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+  .synergy-content { font-size: 13px; color: #cbd5e1; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>AlexNet 知识大贯通脉络图</h1>
+    <p>它不是凭空出世的怪兽，而是前 4 个章节所有技术积木的“终极大合体”</p>
+  </header>
+
+  <!-- 四大基石卡片 -->
+  <div class="pillars-grid">
+    
+    <!-- 第3章 -->
+    <div class="pillar-card ch3-card">
+      <div class="pillar-title ch3-title">
+        <span>📘 第 3 章：线性基石</span>
+      </div>
+      <ul class="item-list">
+        <li>
+          <div class="item-name">小批量 SGD 优化器</div>
+          <div class="item-desc">驱动 46.8M 参数步步前进的引擎</div>
+        </li>
+        <li>
+          <div class="item-name">交叉熵损失函数</div>
+          <div class="item-desc">衡量 1000 分类预测误差的唯一裁判</div>
+        </li>
+        <li>
+          <div class="item-name">Softmax 概率归一化</div>
+          <div class="item-desc">把最终 1000 维得分转化为百分比置信度</div>
+        </li>
+      </ul>
+    </div>
+
+    <!-- 第4章 -->
+    <div class="pillar-card ch4-card">
+      <div class="pillar-title ch4-title">
+        <span>🔮 第 4 章：MLP 与非线性</span>
+      </div>
+      <ul class="item-list">
+        <li>
+          <div class="item-name">反向传播 (Chain Rule)</div>
+          <div class="item-desc">将误差跨越 8 层无损倒传至首层卷积</div>
+        </li>
+        <li>
+          <div class="item-name">ReLU 激活函数</div>
+          <div class="item-desc">彻底击碎 Sigmoid 梯度饱和，速度快 6 倍</div>
+        </li>
+        <li>
+          <div class="item-name">暂退法 Dropout (p=0.5)</div>
+          <div class="item-desc">随机杀死 50% 神经元，锁死全连接层过拟合</div>
+        </li>
+      </ul>
+    </div>
+
+    <!-- 第5章 -->
+    <div class="pillar-card ch5-card">
+      <div class="pillar-title ch5-title">
+        <span>⚙️ 第 5 章：深度计算工程</span>
+      </div>
+      <ul class="item-list">
+        <li>
+          <div class="item-name">nn.Sequential 容器</div>
+          <div class="item-desc">8 行代码把 21 个子层串联成统一数据流</div>
+        </li>
+        <li>
+          <div class="item-name">Xavier 参数初始化</div>
+          <div class="item-desc">稳定深层网络前向与反向传播的方差</div>
+        </li>
+        <li>
+          <div class="item-name">GPGPU 张量加速 (.cuda)</div>
+          <div class="item-desc">把数月 CPU 训练压减到数天完成</div>
+        </li>
+      </ul>
+    </div>
+
+    <!-- 第6章 -->
+    <div class="pillar-card ch6-card">
+      <div class="pillar-title ch6-title">
+        <span>👁️ 第 6 章：卷积网络范式</span>
+      </div>
+      <ul class="item-list">
+        <li>
+          <div class="item-name">空间卷积 (nn.Conv2d)</div>
+          <div class="item-desc">保持二维几何邻域，自发提取层次化模式</div>
+        </li>
+        <li>
+          <div class="item-name">步幅下采样 (Stride=4)</div>
+          <div class="item-desc">首层 11×11 窗口暴力压缩 224×224 高清图</div>
+        </li>
+        <li>
+          <div class="item-name">4D 卷积核与多通道体系</div>
+          <div class="item-desc">多探测器提取高阶特征，通道从 1 扩到 384</div>
+        </li>
+        <li>
+          <div class="item-name">LeNet 双模块骨架范式</div>
+          <div class="item-desc">“卷积编码器 + 全连接分类块”的直接继承</div>
+        </li>
+      </ul>
+    </div>
+
+  </div>
+
+  <div class="convergence-arrow">
+    <div class="arrow-line"></div>
+    <span>⚡ 全部技术发生化学反应，汇聚于 2012 年巅峰 ⚡</span>
+    <div class="arrow-line"></div>
+  </div>
+
+  <!-- 终极产物 AlexNet -->
+  <div class="alexnet-target">
+    <div class="target-header">
+      <div class="target-title">
+        <span>🏆 终极集成体：AlexNet (2012)</span>
+      </div>
+      <span class="badge">ImageNet 夺冠 · 46.8M 参数 · 8 层深度</span>
+    </div>
+
+    <div class="synergy-grid">
+      <div class="synergy-item">
+        <div class="synergy-tag ch6-title">视觉感知层（第 6 章）</div>
+        <div class="synergy-content">5 层卷积（Conv 1~5）将原始图像提炼为 6400 维高级语义特征向量。</div>
+      </div>
+      <div class="synergy-item">
+        <div class="synergy-tag ch4-title">非线性与防过拟合（第 4 章）</div>
+        <div class="synergy-content">全网 ReLU 解决深层训练难，Dropout 严防 4096 维密集层过拟合。</div>
+      </div>
+      <div class="synergy-item">
+        <div class="synergy-tag ch5-title">算力支撑与工程（第 5 章）</div>
+        <div class="synergy-content">双 GPU 并行吞吐，Xavier 初始化让 8 层深网平稳起步。</div>
+      </div>
+      <div class="synergy-item">
+        <div class="synergy-tag ch3-title">决策与学习闭环（第 3 章）</div>
+        <div class="synergy-content">交叉熵损失配合带动量 SGD，小批量梯度下降每秒更新 4680 万参数！</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
